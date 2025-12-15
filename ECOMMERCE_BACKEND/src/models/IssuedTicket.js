@@ -1,0 +1,61 @@
+const mongoose = require("mongoose");
+const Schema = mongoose.Schema;
+
+// Đây là schema cho vé đã được thanh toán và phát hành chính thức
+const issuedTicketSchema = new Schema({
+  ticketCode: {
+    type: String,
+    required: true,
+    unique: true, // Mã vé là duy nhất
+    trim: true,
+  },
+
+  orderDetailId: {
+    type: Schema.Types.ObjectId,
+    ref: "OrderDetail",
+    required: true,
+    index: true,
+  },
+
+  // Bổ sung: ID chỗ ngồi, vĩnh viễn được gán sau khi thanh toán thành công.
+  // Đây là ID chỗ ngồi đã được giữ tạm thời (Temporary Hold) và được xác nhận (Confirmed).
+  seatId: {
+    type: Schema.Types.ObjectId,
+    ref: "Seat",
+    required: false,
+    index: true,
+  },
+
+  userId: {
+    type: String, // Khóa ngoại string tới ApplicationUser
+
+    index: true,
+  },
+
+  isCheckedIn: {
+    type: Boolean,
+    default: false,
+  },
+  checkinTime: {
+    type: Date,
+    default: null,
+  },
+  soldDate: {
+    type: Date,
+    default: Date.now,
+  },
+  status: {
+    type: String,
+    enum: ["Valid", "CheckedIn", "Expired", "Invalid"],
+    default: "Valid",
+  },
+  faceDescriptor: { type: [Number], default: null },
+  refundStatus: {
+    type: String,
+    enum: ["NONE", "REQUESTED", "APPROVED", "REJECTED", "REFUNDED"],
+    default: "NONE",
+  },
+  refundTime: Date,
+});
+
+module.exports = mongoose.model("IssuedTicket", issuedTicketSchema);

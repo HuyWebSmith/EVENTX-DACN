@@ -1,0 +1,86 @@
+/* ===========================
+   Container chính
+=========================== */
+.user-page-container {
+  padding: 20px;
+  background-color: #f5f7fa;
+  min-height: 100vh;
+}
+
+/* Wrapper menu + content */
+.user-page-wrapper {
+  display: flex;
+  gap: 20px;
+}
+
+/* Sidebar menu */
+.user-sidebar-menu {
+  width: 220px;
+  background-color: #fff;
+  border-radius: 8px;
+  padding-top: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+/* Content chính */
+.user-main-content {
+  flex: 1;
+  background-color: #fff;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+/* Tiêu đề section */
+.content-title {
+  font-size: 22px;
+  font-weight: 600;
+  margin-bottom: 20px;
+  color: #001529;
+}
+
+/* Placeholder card (favorite / settings) */
+.placeholder-card {
+  padding: 40px;
+  text-align: center;
+  color: #888;
+  border: 1px dashed #d9d9d9;
+  border-radius: 8px;
+  background-color: #fafafa;
+  font-size: 16px;
+}
+
+/* ===========================
+   Table style
+=========================== */
+.ant-table {
+  background-color: #fff;
+}
+
+.ant-table-thead > tr > th {
+  background-color: #fafafa;
+  font-weight: 600;
+  color: #001529;
+}
+
+.ant-table-tbody > tr > td {
+  padding: 12px 8px;
+  font-size: 14px;
+}
+
+.ant-table-tbody > tr:hover {
+  background-color: #f0f5ff;
+}
+
+.ant-tag {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+button {
+  transition: all 0.2s;
+}
+
+button:hover {
+  opacity: 0.85;
+}
