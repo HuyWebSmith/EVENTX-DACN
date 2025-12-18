@@ -7,8 +7,10 @@ const Ticket = require("../models/TicketModel"); // sửa đường dẫn nếu 
 const HeldTicket = require("../models/HeldTicket");
 const User = require("../models/UserModel");
 const RefundLog = require("../models/RefundLog");
+const mongoose = require("mongoose");
 const dayjs = require("dayjs");
 const { nanoid } = require("nanoid");
+const bcrypt = require("bcrypt");
 // POST /api/orders/create-paypal
 router.post("/create-paypal", async (req, res) => {
   try {
@@ -40,8 +42,6 @@ router.post("/create-paypal", async (req, res) => {
       paymentMethod: "PayPal",
       paypalOrderId: paypalOrderId || "",
     });
-
-    console.log("Order created:", newOrder._id);
 
     // 2️⃣ Tạo OrderDetail và IssuedTicket
     for (const [ticketId, quantity] of Object.entries(selectedQuantities)) {
@@ -80,24 +80,38 @@ router.post("/create-paypal", async (req, res) => {
       .json({ message: "Tạo đơn hàng thất bại", error: err.message });
   }
 });
+// routes/order.js
 router.get("/:orderId", async (req, res) => {
   try {
-    const order = await Order.findById(req.params.orderId)
-      .populate({
-        path: "orderDetails",
-        populate: { path: "ticketId", model: "Ticket" },
-      })
-      .lean(); // xóa populate nếu ko cần
+    const { orderId } = req.params;
+
+    const order = await Order.findById(orderId).populate({
+      path: "orderDetails",
+      model: "OrderDetail", // <--- Quan trọng: tên model phải khớp với mongoose.model("OrderDetail",...)
+      populate: {
+        path: "ticketId",
+        model: "Ticket",
+      },
+    });
+
     if (!order)
       return res.status(404).json({ message: "Không tìm thấy đơn hàng" });
-    order.orderDetails = order.orderDetails.map((detail) => ({
-      _id: detail._id,
-      ticketName: detail.ticketId?.type || "Vé",
-      ticketType: detail.ticketId?.description || "Vé",
-      price: detail.price,
-      quantity: detail.quantity,
-    }));
-    res.json(order);
+
+    const orderData = order.toJSON();
+
+    // Map lại cấu trúc để FE dễ dùng
+    const formattedOrder = {
+      ...orderData,
+      orderDetails: (orderData.orderDetails || []).map((d) => ({
+        _id: d._id,
+        ticketName: d.ticketId?.type || "Vé sự kiện",
+        ticketType: d.ticketId?.description || "Tiêu chuẩn",
+        price: d.price,
+        quantity: d.quantity,
+      })),
+    };
+
+    res.json(formattedOrder);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Lỗi server" });
@@ -157,7 +171,6 @@ router.get("/get-by-order/:orderId", async (req, res) => {
 
     const orderDetailIds = orderDetails.map((od) => od._id);
 
-    // Lấy tất cả issued ticket liên quan
     const issuedTickets = await IssuedTicket.find({
       orderDetailId: { $in: orderDetailIds },
     })
@@ -182,89 +195,109 @@ router.get("/get-by-order/:orderId", async (req, res) => {
   }
 });
 // POST /api/orders/pay-wallet
-router.post("/pay-wallet", async (req, res) => {
+router.post("/create", async (req, res) => {
   try {
     const {
       holdId,
-      selectedQuantities,
-      totalPrice,
-      totalQuantity,
+      paymentMethod,
+      password, // Chỉ dùng cho Wallet
       customerInfo,
+      selectedQuantities, // Object: { "id_ve": so_luong }
+      totalPrice,
+      paypalOrderId, // Lưu lại mã PayPal nếu có để đối soát
     } = req.body;
 
     if (!customerInfo?.userId)
       return res.status(400).json({ message: "Thiếu userId" });
-
-    const user = await User.findById(customerInfo.userId);
-    if (!user) return res.status(404).json({ message: "User không tồn tại" });
-
-    // Check số dư ví
-    if (user.walletBalance < totalPrice) {
-      return res.status(400).json({ message: "Số dư ví không đủ" });
+    if (!selectedQuantities || Object.keys(selectedQuantities).length === 0) {
+      return res.status(400).json({ message: "Danh sách vé rỗng" });
     }
 
-    // Trừ tiền trong ví
-    user.walletBalance -= totalPrice;
+    if (paymentMethod === "Wallet") {
+      const user = await User.findById(customerInfo.userId);
+      if (!user) return res.status(404).json({ message: "User không tồn tại" });
 
-    await user.save();
+      const isMatch = await bcrypt.compare(password, user.passwordHash);
+      if (!isMatch)
+        return res
+          .status(400)
+          .json({ status: "ERROR", message: "Mật khẩu ví không chính xác!" });
 
-    // Tạo đơn hàng
+      if (user.walletBalance < totalPrice) {
+        return res
+          .status(400)
+          .json({ status: "ERROR", message: "Số dư ví không đủ" });
+      }
+
+      user.walletBalance -= totalPrice;
+      await user.save();
+    }
+
+    // --- 3. TẠO ORDER CHUNG ---
     const newOrder = await Order.create({
       userId: customerInfo.userId,
       totalAmount: totalPrice,
-      fullName: customerInfo.fullName || "Khách",
+      fullName: customerInfo.fullName || "Khách hàng",
       email: customerInfo.email || "",
       phoneNumber: customerInfo.phoneNumber || "",
       address: customerInfo.address || "",
       orderStatus: "Completed",
-      paymentMethod: "Wallet",
+      paymentMethod: paymentMethod,
+      paypalOrderId: paypalOrderId || "",
     });
 
-    // Tạo OrderDetail + IssuedTicket
-    for (const [ticketId, quantity] of Object.entries(selectedQuantities)) {
+    const ticketEntries = Object.entries(selectedQuantities);
+
+    for (const [ticketId, quantity] of ticketEntries) {
       if (quantity <= 0) continue;
 
       const ticket = await Ticket.findById(ticketId);
       if (!ticket) continue;
 
+      // Tạo chi tiết đơn hàng
       const orderDetail = await OrderDetail.create({
         orderId: newOrder._id,
-        ticketId,
-        quantity,
+        ticketId: ticketId,
+        quantity: quantity,
         price: ticket.price,
       });
 
+      // Tạo mã vé IssuedTicket cho từng số lượng
+      const ticketPromises = [];
       for (let i = 0; i < quantity; i++) {
-        await IssuedTicket.create({
-          ticketCode: `${ticketId}-${ticket.type}-${nanoid(10)}`,
-          orderDetailId: orderDetail._id,
-          userId: customerInfo.userId,
-          soldDate: new Date(),
-        });
+        ticketPromises.push(
+          IssuedTicket.create({
+            ticketCode: `EVENTX-${ticketId.slice(-4)}-${nanoid(
+              8
+            ).toUpperCase()}`,
+            orderDetailId: orderDetail._id,
+            userId: customerInfo.userId,
+            soldDate: new Date(),
+          })
+        );
       }
+      await Promise.all(ticketPromises);
 
-      await Ticket.findByIdAndUpdate(ticketId, {
-        $inc: { sold: quantity },
-      });
+      // Cập nhật số lượng đã bán vào kho vé
+      await Ticket.findByIdAndUpdate(ticketId, { $inc: { sold: quantity } });
     }
 
-    // Xóa vé đang Hold
+    // --- 5. DỌN DẸP VÉ ĐANG GIỮ (HOLD) ---
+    // Xóa theo userId và danh sách ticketId đã mua thành công
     await HeldTicket.deleteMany({
       userId: customerInfo.userId,
       ticketId: { $in: Object.keys(selectedQuantities) },
     });
 
     res.status(200).json({
-      success: true, // thêm success
-      message: "Thanh toán bằng ví thành công",
+      status: "OK",
+      success: true,
       orderId: newOrder._id,
-      balance: user.walletBalance, // gửi luôn số dư mới
+      message: "Giao dịch hoàn tất thành công!",
     });
   } catch (err) {
-    console.error("Lỗi pay-wallet:", err);
-    res
-      .status(500)
-      .json({ message: "Thanh toán ví thất bại", error: err.message });
+    console.error("Lỗi tạo đơn tổng hợp:", err);
+    res.status(500).json({ status: "ERROR", message: err.message });
   }
 });
 // POST /api/orders/refund-ticket
@@ -312,42 +345,43 @@ router.post("/refunds/approve", async (req, res) => {
       return res.json({ success: false, message: "Vé không hợp lệ" });
     }
 
-    const user = await User.findById(
-      ticket.orderDetailId.orderId.userId
-    ).session(session);
+    const userId = ticket.orderDetailId?.orderId?.userId;
+    const refundAmount = ticket.orderDetailId?.ticketId?.price;
+
+    if (!userId || refundAmount == null) {
+      await session.abortTransaction();
+      return res.json({ success: false, message: "Dữ liệu vé không hợp lệ" });
+    }
+
+    const user = await User.findById(userId).session(session);
     if (!user) {
       await session.abortTransaction();
       return res.json({ success: false, message: "Không tìm thấy user" });
     }
 
-    const refundAmount = ticket.orderDetailId.ticketId.price;
+    user.walletBalance = (user.walletBalance || 0) + refundAmount;
+    await user.save({ session });
 
-    // 1️⃣ Cộng tiền về ví người dùng
-    user.walletBalance += refundAmount;
-    await user.save();
-
-    // 2️⃣ Cập nhật trạng thái vé
     ticket.refundStatus = "REFUNDED";
     ticket.status = "Invalid";
     ticket.refundTime = new Date();
-    await ticket.save();
+    await ticket.save({ session });
 
-    // 3️⃣ Trừ doanh thu nếu có trường revenue trong Event
     const event = await Ticket.findById(ticket.orderDetailId.ticketId._id)
       .populate("eventId")
       .session(session);
-    if (event.eventId) {
+
+    if (event && event.eventId) {
       event.eventId.revenue = (event.eventId.revenue || 0) - refundAmount;
-      await event.eventId.save();
+      await event.eventId.save({ session });
     }
 
-    // 4️⃣ Ghi log hoàn vé
     await RefundLog.create(
       [
         {
           ticketCode,
           eventId: ticket.orderDetailId.ticketId.eventId,
-          userId: ticket.orderDetailId.orderId.userId,
+          userId,
           refundAmount,
           status: "APPROVED",
           refundedAt: new Date(),

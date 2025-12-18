@@ -102,3 +102,33 @@ export const updateUser = async ({ id, data }) => {
   const res = await axiosJWT.put(`${API}/user/update-user/${id}`, data);
   return res.data;
 };
+// =============================
+//  VERIFY EMAIL
+// =============================
+export const verifyEmail = async (token) => {
+  const res = await axios.get("http://localhost:3001/api/user/verify-email", {
+    params: { token },
+  });
+
+  return res.data;
+};
+
+// =============================
+//  RESEND VERIFY EMAIL
+// =============================
+export const resendVerifyEmail = async (email) => {
+  const res = await axiosJWT.post(`${API}/user/resend-verify-email`, { email });
+  return res.data;
+};
+export const deductBalance = async (userId, amount) => {
+  try {
+    const res = await axiosJWT.post("/wallet/deduct", { userId, amount });
+    return res.data;
+  } catch (err) {
+    console.error(err.response?.data || err.message);
+    return {
+      success: false,
+      message: err.response?.data?.message || err.message,
+    };
+  }
+};

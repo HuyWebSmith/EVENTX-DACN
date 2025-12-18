@@ -1,53 +1,40 @@
 .slider-container {
-  position: relative;
-  padding: 0 60px;
-  /* KHÔNG dùng overflow: hidden vì nó cắt dots */
-  overflow: visible; /* ✅ cho phép dots hiển thị */
+  width: 100%;
+  background-color: #fff;
+  padding: 50px 0;
+  overflow: hidden;
 }
 
-/* Hai lớp làm mờ hai bên */
-.slider-container::before,
-.slider-container::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  width: 120px;
-  height: 100%;
-  z-index: 1; /* ✅ thấp hơn dots */
-  pointer-events: none;
+.slick-slide {
+  transition: all 0.5s ease;
+  transform: scale(0.8);
+  opacity: 0.4;
+  z-index: 1;
+  filter: blur(1px);
 }
 
-.slider-container::before {
-  left: 0;
-  background: linear-gradient(
-    to right,
-    rgba(255, 255, 255, 1) 0%,
-    rgba(255, 255, 255, 0) 100%
-  );
+.slick-slide.slick-center {
+  transform: scale(1.1);
+  opacity: 1;
+  z-index: 5;
+  filter: blur(0);
 }
 
-.slider-container::after {
-  right: 0;
-  background: linear-gradient(
-    to left,
-    rgba(255, 255, 255, 1) 0%,
-    rgba(255, 255, 255, 0) 100%
-  );
+.slick-slide img {
+  width: 100%;
+  height: auto;
+  border-radius: 15px;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4);
+  display: block;
 }
 
-/* Bắt buộc nâng dots lên trên overlay */
 .slick-dots {
-  position: relative;
-  bottom: -20px;
-  z-index: 5 !important;
+  bottom: -40px;
 }
 .slick-dots li button:before {
+  color: #fff !important;
   font-size: 12px;
-  color: #000 !important;
-  opacity: 0.4; /* dot chưa active */
 }
-
 .slick-dots li.slick-active button:before {
-  color: rgb(45, 194, 117) !important;
-  opacity: 1;
+  color: #fce762 !important;
 }

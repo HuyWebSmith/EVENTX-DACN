@@ -37,7 +37,7 @@ app.use("/api/orders", orderRouter);
 app.use("/api/issued-tickets", issuedTicketsRouter);
 app.use("/api/issued-tickets2", issuedTicketsRouter2);
 app.use("/api/email", emailRouter);
-app.use("/api/orders", checkinRouter);
+app.use("/api/checkin-order", checkinRouter);
 app.use("/categories", categoryRoutes);
 app.use("/api/comments", require("./routes/commentRoutes"));
 app.use("/api/favorite", favoriteRoutes);

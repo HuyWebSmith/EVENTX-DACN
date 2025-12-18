@@ -117,5 +117,91 @@ router.post("/register-face", async (req, res) => {
     res.status(500).json({ success: false, message: "Lỗi server" });
   }
 });
+router.post("/event-face-checkin", async (req, res) => {
+  try {
+    const { eventId, faceDescriptor } = req.body;
 
+    if (!eventId || !faceDescriptor) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Thiếu dữ liệu quét" });
+    }
+
+    // BƯỚC 1: Lấy tất cả vé CÓ Face ID (Bỏ điều kiện isCheckedIn: false)
+    const tickets = await IssuedTicket.find({
+      faceDescriptor: { $exists: true, $ne: [] },
+    }).populate({
+      path: "orderDetailId",
+      populate: { path: "ticketId" },
+    });
+
+    const eventTickets = tickets.filter((t) => {
+      return (
+        t.orderDetailId?.ticketId?.eventId?.toString() === eventId.toString()
+      );
+    });
+
+    if (eventTickets.length === 0) {
+      return res.json({
+        success: false,
+        message: "Sự kiện chưa có dữ liệu Face ID",
+      });
+    }
+
+    let bestMatch = null;
+    let minDistance = 0.55;
+
+    // BƯỚC 2: Tìm người khớp nhất trong toàn bộ danh sách
+    for (const ticket of eventTickets) {
+      const savedDescriptor = ticket.faceDescriptor;
+      if (!savedDescriptor || savedDescriptor.length !== faceDescriptor.length)
+        continue;
+
+      const distance = Math.sqrt(
+        faceDescriptor.reduce(
+          (acc, val, i) => acc + Math.pow(val - savedDescriptor[i], 2),
+          0
+        )
+      );
+
+      if (distance < minDistance) {
+        minDistance = distance;
+        bestMatch = ticket;
+      }
+    }
+
+    // BƯỚC 3: Kiểm tra kết quả
+    if (bestMatch) {
+      // TRƯỜNG HỢP: Đã check-in rồi
+      if (bestMatch.isCheckedIn) {
+        return res.json({
+          success: false,
+          isAlreadyCheckedIn: true, // Cờ quan trọng để Frontend nhận biết
+          message: `Vé ${bestMatch.ticketCode} đã được sử dụng!`,
+          buyerName: bestMatch.ticketCode,
+        });
+      }
+
+      // TRƯỜNG HỢP: Check-in mới thành công
+      bestMatch.isCheckedIn = true;
+      bestMatch.status = "CheckedIn";
+      bestMatch.checkinTime = new Date();
+      await bestMatch.save();
+
+      return res.json({
+        success: true,
+        message: "Nhận diện thành công!",
+        buyerName: bestMatch.ticketCode,
+      });
+    }
+
+    return res.json({
+      success: false,
+      message: "Không khớp với khách hàng nào",
+    });
+  } catch (err) {
+    console.error("Global Face Checkin Error:", err);
+    res.status(500).json({ success: false, message: "Lỗi Server" });
+  }
+});
 module.exports = router;

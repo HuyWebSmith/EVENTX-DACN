@@ -83,7 +83,7 @@ const ButtonInputSearch = (props) => {
         }}
       />
 
-      <ButtonComponent
+      {/* <ButtonComponent
         size="large"
         icon={<SearchOutlined />}
         textButton="Tìm kiếm"
@@ -93,7 +93,7 @@ const ButtonInputSearch = (props) => {
           color: colorButton,
           borderRadius: 0,
         }}
-      />
+      /> */}
 
       {open && suggestions?.length > 0 && (
         <List

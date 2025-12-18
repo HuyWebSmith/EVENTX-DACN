@@ -1,86 +1,155 @@
-/* ===========================
-   Container chính
-=========================== */
+/* Tổng thể trang */
 .user-page-container {
-  padding: 20px;
-  background-color: #f5f7fa;
+  background-color: #f4f7fe; /* Màu nền xám xanh nhạt cực sang */
   min-height: 100vh;
+  padding: 24px 0;
 }
 
-/* Wrapper menu + content */
 .user-page-wrapper {
+  max-width: 1300px;
+  margin: 0 auto;
   display: flex;
-  gap: 20px;
+  gap: 24px;
+  padding: 0 20px;
 }
 
-/* Sidebar menu */
-.user-sidebar-menu {
-  width: 220px;
-  background-color: #fff;
-  border-radius: 8px;
-  padding-top: 10px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+/* Sidebar tinh tế */
+.user-sidebar {
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+  height: fit-content;
+  transition: all 0.3s ease;
+  border: none;
+  overflow: hidden;
+  padding: 10px 0;
 }
 
-/* Content chính */
+.user-sidebar.collapsed {
+  width: 80px;
+}
+
+.sidebar-toggle {
+  padding: 10px 20px;
+  border-bottom: 1px solid #f0f0f0;
+  margin-bottom: 10px;
+}
+
+/* Custom Menu Ant Design */
+.user-sidebar .ant-menu {
+  border-inline-end: none !important;
+}
+
+.user-sidebar .ant-menu-item {
+  height: 50px !important;
+  line-height: 50px !important;
+  margin: 8px 12px !important;
+  border-radius: 12px !important;
+  width: calc(100% - 24px) !important;
+}
+
+.user-sidebar .ant-menu-item-selected {
+  background-color: #e6f7ff !important;
+  font-weight: 600;
+}
+
+/* Nội dung chính */
 .user-main-content {
   flex: 1;
-  background-color: #fff;
-  border-radius: 8px;
-  padding: 20px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 32px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+  min-height: 70vh;
 }
 
-/* Tiêu đề section */
 .content-title {
-  font-size: 22px;
-  font-weight: 600;
-  margin-bottom: 20px;
-  color: #001529;
+  font-size: 24px;
+  font-weight: 700;
+  color: #1a3353;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
-/* Placeholder card (favorite / settings) */
-.placeholder-card {
-  padding: 40px;
-  text-align: center;
-  color: #888;
-  border: 1px dashed #d9d9d9;
+.content-title::before {
+  content: "";
+  width: 4px;
+  height: 24px;
+  background: #1890ff;
+  border-radius: 4px;
+}
+
+/* Table styling */
+.ant-table-wrapper {
+  background: white;
   border-radius: 8px;
-  background-color: #fafafa;
-  font-size: 16px;
-}
-
-/* ===========================
-   Table style
-=========================== */
-.ant-table {
-  background-color: #fff;
 }
 
 .ant-table-thead > tr > th {
-  background-color: #fafafa;
-  font-weight: 600;
-  color: #001529;
+  background: #f8fafc !important;
+  font-weight: 600 !important;
+  color: #475569 !important;
 }
 
-.ant-table-tbody > tr > td {
-  padding: 12px 8px;
-  font-size: 14px;
+.ant-table-tbody > tr:hover > td {
+  background: #f0f7ff !important;
 }
 
-.ant-table-tbody > tr:hover {
-  background-color: #f0f5ff;
+/* Tabs styling */
+.ant-tabs-nav::before {
+  border-bottom: 2px solid #f0f0f0 !important;
 }
 
-.ant-tag {
-  font-size: 12px;
+.ant-tabs-tab-btn {
+  font-size: 15px !important;
   font-weight: 500;
 }
 
-button {
-  transition: all 0.2s;
+/* Video Face ID */
+video {
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  background: #000;
 }
 
-button:hover {
-  opacity: 0.85;
+/* Empty state */
+.placeholder-card {
+  text-align: center;
+  padding: 50px 0;
+  color: #94a3b8;
+}
+
+/* Buttons */
+.ant-btn-primary {
+  border-radius: 8px !important;
+  box-shadow: 0 4px 6px rgba(24, 144, 255, 0.2);
+}
+/* Tùy chỉnh Modal Bản đồ */
+.luxury-map-modal .ant-modal-content {
+  border-radius: 16px;
+  overflow: hidden;
+  padding: 0 !important; /* Đẩy nội dung sát viền */
+}
+
+.luxury-map-modal .ant-modal-header {
+  padding: 20px 24px;
+  margin-bottom: 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+/* Hiệu ứng loading nhẹ cho iframe */
+.luxury-map-modal iframe {
+  background: #f4f7fe;
+  transition: opacity 0.3s ease;
+}
+
+/* Nút đóng modal tròn trịa */
+.luxury-map-modal .ant-modal-close {
+  top: 15px;
+  right: 15px;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }

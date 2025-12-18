@@ -29,11 +29,21 @@ const EventComment = ({ eventId }) => {
     }
 
     setLoading(true);
-    await createComment({ eventId, rating, content });
-    setRating(0);
-    setContent("");
-    fetchComments();
-    setLoading(false);
+    try {
+      await createComment({ eventId, rating, content });
+      setRating(0);
+      setContent("");
+      fetchComments();
+      message.success("Gửi đánh giá thành công!");
+    } catch (error) {
+      if (error.response?.status === 401) {
+        message.error("Bạn cần đăng nhập để gửi đánh giá");
+      } else {
+        message.error("Gửi đánh giá thất bại");
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

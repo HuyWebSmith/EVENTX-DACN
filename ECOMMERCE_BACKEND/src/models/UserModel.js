@@ -12,7 +12,7 @@ const userSchema = new Schema(
     gender: { type: String, enum: ["Nam", "Nữ", "Khác"] },
     dateOfBirth: { type: Date },
     avatarUrl: { type: String, trim: true },
-    rolePreference: { type: String }, // Attendee, Speaker, Sponsor, Organizer
+    rolePreference: { type: String },
     interestArea: { type: String },
     bio: { type: String },
     linkedInProfile: { type: String, trim: true },
@@ -25,9 +25,23 @@ const userSchema = new Schema(
     isBlocked: { type: Boolean, default: false },
     lastLogin: { type: Date },
     walletBalance: { type: Number, default: 0 },
+    emailConfirmed: { type: Boolean, default: false },
+    emailVerifyToken: { type: String },
+    emailVerifyExpire: { type: Date },
+    lastVerifyEmailSentAt: { type: Date },
+
+    isHost: { type: Boolean, default: false }, // user có quyền tạo sự kiện không
+    isVerifiedHost: { type: Boolean, default: false }, // đã verified bằng CMND/giấy phép
+    verificationDocumentUrl: { type: String, trim: true }, // lưu đường dẫn file CMND/giấy phép
+    verificationStatus: {
+      type: String,
+      enum: ["Pending", "Approved", "Rejected"],
+      default: "Pending",
+    },
   },
+
   {
-    timestamps: true, // Tự động thêm createdAt và updatedAt (thay cho CreatedAt thủ công)
+    timestamps: true,
   }
 );
 

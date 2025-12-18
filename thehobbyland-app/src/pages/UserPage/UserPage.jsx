@@ -5,21 +5,32 @@ import {
   AccountBookOutlined,
   HeartOutlined,
   SettingOutlined,
+  CloseCircleOutlined,
+  CheckCircleOutlined,
 } from "@ant-design/icons";
+
 import HeaderComponent from "../../components/HeaderComponent/HeaderComponent";
 import UserEvent from "../../components/UserEvent/UserEvent";
 import { axiosJWT } from "../../services/UserService";
 import dayjs from "dayjs";
+import isSameOrAfter from "dayjs/plugin/isSameOrAfter";
+import isSameOrBefore from "dayjs/plugin/isSameOrBefore";
+
 import "./UserPage.css";
 import * as faceapi from "face-api.js";
 import { useSelector } from "react-redux";
 import { MenuFoldOutlined, MenuUnfoldOutlined } from "@ant-design/icons";
-
+import { Tabs } from "antd";
+import { Typography } from "antd";
+import { useLocation } from "react-router-dom";
+const { Text } = Typography;
 const menuItems = [
   { key: "event", icon: <CalendarOutlined />, label: "Sự kiện của tôi" },
   { key: "ticket", icon: <AccountBookOutlined />, label: "Vé đã mua" },
   { key: "favorite", icon: <HeartOutlined />, label: "Yêu thích" },
 ];
+dayjs.extend(isSameOrAfter);
+dayjs.extend(isSameOrBefore);
 
 const UserPage = () => {
   const [selectedKey, setSelectedKey] = useState("event");
@@ -37,7 +48,16 @@ const UserPage = () => {
   const [mapLocation, setMapLocation] = useState("");
   const [collapsed, setCollapsed] = useState(false);
   const [modal, contextHolder] = Modal.useModal();
-
+  const [faceMessage, setFaceMessage] = useState(null);
+  const [faceMessageType, setFaceMessageType] = useState("success");
+  const location1 = useLocation();
+  const queryParams = new URLSearchParams(location1.search);
+  const tabFromQuery = queryParams.get("tab");
+  useEffect(() => {
+    if (tabFromQuery) {
+      setSelectedKey(tabFromQuery);
+    }
+  }, [tabFromQuery]);
   const openMapModal = (location) => {
     setMapLocation(location);
     setMapModalVisible(true);
@@ -49,6 +69,7 @@ const UserPage = () => {
   const openFaceModal = (ticket, action) => {
     setCurrentTicket(ticket);
     setFaceAction(action);
+    setFaceMessage(null);
     setFaceModalVisible(true);
   };
 
@@ -78,7 +99,11 @@ const UserPage = () => {
       },
     });
   };
-
+  const getMapSrc = (location) => {
+    return `https://maps.google.com/maps?q=${encodeURIComponent(
+      location
+    )}&output=embed`;
+  };
   const handleRefund = (ticket) => {
     modal.confirm({
       title: "Xác nhận hoàn vé",
@@ -111,53 +136,82 @@ const UserPage = () => {
 
   const handleFaceConfirm = async () => {
     const videoEl = videoRef.current;
-    if (!videoEl) return;
-
-    // Tạo canvas tạm để chụp frame
-    const canvas = document.createElement("canvas");
-    canvas.width = videoEl.videoWidth;
-    canvas.height = videoEl.videoHeight;
-    const ctx = canvas.getContext("2d");
-    ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
-
-    const detections = await faceapi
-      .detectSingleFace(canvas, new faceapi.TinyFaceDetectorOptions())
-      .withFaceLandmarks(true)
-      .withFaceDescriptor();
-
-    if (!detections) {
-      message.error("Không phát hiện gương mặt!");
+    if (!videoEl) {
+      setFaceMessage("Không tìm thấy thiết bị camera!");
+      setFaceMessageType("error");
       return;
     }
 
-    const faceDescriptor = Array.from(detections.descriptor);
+    // Bắt đầu quá trình
+    setFaceMessage("Đang quét khuôn mặt...");
+    setFaceMessageType("success");
 
     try {
-      if (faceAction === "register") {
-        await axiosJWT.post("http://localhost:3000/api/orders/register-face", {
-          ticketCode: currentTicket.ticketCode,
-          faceDescriptor,
-        });
+      // 1. Kiểm tra nhận diện gương mặt từ Stream Video
+      const detections = await faceapi
+        .detectSingleFace(videoEl, new faceapi.TinyFaceDetectorOptions())
+        .withFaceLandmarks(true)
+        .withFaceDescriptor();
 
-        message.success("Đăng ký Face ID thành công!");
-      } else {
-        const res = await axiosJWT.post(
-          "http://localhost:3000/api/orders/checkin-face",
+      // LỖI: Không tìm thấy khuôn mặt
+      if (!detections) {
+        setFaceMessage(
+          "❌ Không tìm thấy khuôn mặt! Hãy nhìn thẳng và đủ sáng."
+        );
+        setFaceMessageType("error");
+        return;
+      }
+
+      // 2. Nếu tìm thấy mặt, lấy descriptor
+      const faceDescriptor = Array.from(detections.descriptor);
+      setFaceMessage("Đang gửi dữ liệu xác thực...");
+
+      // 3. Gọi API
+      let res;
+      if (faceAction === "register") {
+        res = await axiosJWT.post(
+          "http://localhost:3000/api/checkin-order/register-face",
           {
             ticketCode: currentTicket.ticketCode,
             faceDescriptor,
           }
         );
-
-        if (res.data.success) message.success(res.data.message);
-        else message.error(res.data.message);
+      } else {
+        res = await axiosJWT.post(
+          "http://localhost:3000/api/checkin-order/checkin-face",
+          {
+            ticketCode: currentTicket.ticketCode,
+            faceDescriptor,
+          }
+        );
       }
-      fetchUserTickets();
+
+      // 4. Xử lý kết quả từ Server
+      if (res.data && (res.data.success || res.status === 200)) {
+        setFaceMessage(
+          faceAction === "register"
+            ? "✅ Thiết lập Face ID hoàn tất!"
+            : "✅ Xác thực thành công!"
+        );
+        setFaceMessageType("success");
+
+        // Load lại danh sách vé để cập nhật trạng thái (ví dụ nút Thiết lập biến mất)
+        fetchUserTickets();
+
+        // Đợi 2 giây để user thấy thông báo thành công rồi mới đóng
+        setTimeout(() => {
+          closeFaceModal();
+        }, 2000);
+      } else {
+        // LỖI: Server trả về thất bại (Ví dụ: Vé đã dùng, hoặc Face ID không khớp)
+        setFaceMessage(`❌ ${res.data.message || "Thao tác thất bại"}`);
+        setFaceMessageType("error");
+      }
     } catch (err) {
-      console.error(err);
-      message.error("Xử lý thất bại!");
-    } finally {
-      closeFaceModal();
+      // LỖI: Kết nối server hoặc lỗi crash code
+      console.error("Face ID Error:", err);
+      setFaceMessage("❌ Lỗi hệ thống! Vui lòng thử lại sau.");
+      setFaceMessageType("error");
     }
   };
   const fetchFavoriteEvents = async () => {
@@ -180,6 +234,19 @@ const UserPage = () => {
       setLoadingFavorites(false);
     }
   };
+  const activeTickets = tickets.filter(
+    (t) =>
+      t.refundStatus !== "REFUNDED" &&
+      (!t.eventDateRaw || dayjs(t.eventDateRaw).isSameOrAfter(dayjs(), "day"))
+  );
+  const expiredTickets = tickets.filter(
+    (t) =>
+      t.refundStatus !== "REFUNDED" &&
+      t.eventDateRaw &&
+      dayjs(t.eventDateRaw).isBefore(dayjs(), "day")
+  );
+
+  const refundedTickets = tickets.filter((t) => t.refundStatus === "REFUNDED");
   // ==============================
   // FETCH VÉ CỦA USER
   // ==============================
@@ -201,7 +268,7 @@ const UserPage = () => {
         return {
           ticketCode: item.ticketCode,
           isCheckedIn: item.isCheckedIn,
-          refundStatus: item.refundStatus, // ⭐ thêm
+          refundStatus: item.refundStatus,
           status: item.status,
           checkinTime: item.checkinTime,
           seat: item.seatId?.seatNumber || "Không có",
@@ -211,6 +278,7 @@ const UserPage = () => {
           ticketName: t?.type,
           price: t?.price || 0,
           eventTitle: ev?.title || "—",
+          eventDateRaw: ev?.eventDate || null, // giữ raw date
           eventDate: ev?.eventDate
             ? dayjs(ev.eventDate).format("DD/MM/YYYY")
             : "—",
@@ -227,6 +295,7 @@ const UserPage = () => {
             : "—",
         };
       });
+
       setTickets(mapped);
     } catch (err) {
       console.error(err);
@@ -339,109 +408,66 @@ const UserPage = () => {
   ];
 
   const ticketColumns = [
-    { title: "Tên vé", dataIndex: "ticketName" },
-    { title: "Sự kiện", dataIndex: "eventTitle" },
+    {
+      title: "Sự kiện",
+      dataIndex: "eventTitle",
+      render: (text) => <strong style={{ color: "#1a3353" }}>{text}</strong>,
+    },
+    { title: "Loại vé", dataIndex: "ticketName" },
     { title: "Ngày", dataIndex: "eventDate" },
-    { title: "Giờ", dataIndex: "eventTime" },
     {
       title: "Địa điểm",
       dataIndex: "eventLocation",
-      width: 220,
+      width: 250,
       render: (text) => (
         <span
-          style={{
-            color: "#1890ff",
-            cursor: "pointer",
-            display: "-webkit-box",
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: "vertical",
-            overflow: "hidden",
-          }}
+          className="map-link"
+          style={{ color: "#1890ff", cursor: "pointer", fontSize: "13px" }}
           onClick={() => openMapModal(text)}
-          title={text}
         >
-          {text}
+          📍 {text}
         </span>
       ),
     },
-
     {
-      title: "Giá",
-      dataIndex: "price",
-      render: (v) => `${v.toLocaleString()} VND`,
-    },
-    {
-      title: "Check-in",
-      dataIndex: "isCheckedIn",
-      render: (v) =>
-        v ? (
-          <Tag color="green">Đã Check-in</Tag>
-        ) : (
-          <Tag color="orange">Chưa Check-in</Tag>
-        ),
+      title: "Trạng thái",
+      dataIndex: "status",
+      render: (_, record) => {
+        if (record.refundStatus === "REFUNDED")
+          return <Tag color="error">Đã hoàn tiền</Tag>;
+        if (record.isCheckedIn) return <Tag color="success">Đã sử dụng</Tag>;
+        return <Tag color="processing">Sẵn sàng</Tag>;
+      },
     },
     {
       title: "Face ID",
       render: (_, record) =>
-        record.isCheckedIn ? (
-          <Tag color="green">Đã Check-in</Tag>
-        ) : (
-          <Button onClick={() => openFaceModal(record, "register")}>
-            Đăng ký Face ID
+        !record.isCheckedIn && (
+          <Button
+            type="primary"
+            ghost
+            size="small"
+            onClick={() => openFaceModal(record, "register")}
+          >
+            {record.faceRegistered ? "Cập nhật FaceID" : "Thiết lập FaceID"}
           </Button>
         ),
     },
     {
-      title: "Thời gian check-in",
-      dataIndex: "checkinTime",
-      render: (v) => (v ? dayjs(v).format("DD/MM/YYYY HH:mm") : "—"),
-    },
-    { title: "Ngày mua", dataIndex: "soldDate" },
-    {
-      title: "Trạng thái vé",
-      dataIndex: "status",
+      title: "Thao tác",
       render: (_, record) => {
-        if (record.refundStatus === "REFUNDED") {
-          return <Tag color="red">Đã hoàn</Tag>;
+        if (!record.isCheckedIn && record.refundStatus === "NONE") {
+          return (
+            <Button
+              type="link"
+              danger
+              onClick={() => handleRefundRequest(record)}
+            >
+              Hoàn vé
+            </Button>
+          );
         }
-        if (record.isCheckedIn) {
-          return <Tag color="green">Đã check-in</Tag>;
-        }
-        return <Tag color="blue">Còn hiệu lực</Tag>;
-      },
-    },
-
-    {
-      title: "Hoàn vé",
-      render: (_, record) => {
-        // Đã check-in thì cấm hoàn
-        if (record.isCheckedIn) {
-          return <Tag color="default">Không thể hoàn</Tag>;
-        }
-
-        switch (record.refundStatus) {
-          case "NONE":
-            return (
-              <Button danger onClick={() => handleRefundRequest(record)}>
-                Yêu cầu hoàn
-              </Button>
-            );
-
-          case "REQUESTED":
-            return <Tag color="orange">Chờ host duyệt</Tag>;
-
-          case "APPROVED":
-            return <Tag color="blue">Đã duyệt</Tag>;
-
-          case "REJECTED":
-            return <Tag color="red">Bị từ chối</Tag>;
-
-          case "REFUNDED":
-            return <Tag color="green">Đã hoàn</Tag>;
-
-          default:
-            return "—";
-        }
+        return <small style={{ color: "#ccc" }}>N/A</small>;
       },
     },
   ];
@@ -459,15 +485,38 @@ const UserPage = () => {
         return (
           <>
             <h2 className="content-title">Vé đã mua</h2>
-            <Table
-              dataSource={tickets}
-              columns={ticketColumns}
-              loading={loading}
-              rowKey="ticketCode"
-              pagination={{ pageSize: 10 }}
-            />
+            <Tabs defaultActiveKey="active">
+              <Tabs.TabPane tab="Còn hiệu lực" key="active">
+                <Table
+                  dataSource={activeTickets}
+                  columns={ticketColumns}
+                  loading={loading}
+                  rowKey="ticketCode"
+                  pagination={{ pageSize: 10 }}
+                />
+              </Tabs.TabPane>
+              <Tabs.TabPane tab="Đã hết hạn" key="expired">
+                <Table
+                  dataSource={expiredTickets}
+                  columns={ticketColumns}
+                  loading={loading}
+                  rowKey="ticketCode"
+                  pagination={{ pageSize: 10 }}
+                />
+              </Tabs.TabPane>
+              <Tabs.TabPane tab="Đã hoàn" key="refunded">
+                <Table
+                  dataSource={refundedTickets}
+                  columns={ticketColumns}
+                  loading={loading}
+                  rowKey="ticketCode"
+                  pagination={{ pageSize: 10 }}
+                />
+              </Tabs.TabPane>
+            </Tabs>
           </>
         );
+
       case "favorite":
         return (
           <>
@@ -494,65 +543,125 @@ const UserPage = () => {
   };
 
   return (
-    <>
+    <div className="user-page-container">
       {contextHolder}
       <HeaderComponent isHiddenSearch isHiddenCart />
-      <div className="user-page-container">
-        <div className="user-page-wrapper">
-          <div className={`user-sidebar ${collapsed ? "collapsed" : ""}`}>
-            <div className="sidebar-toggle">
-              <Button
-                type="text"
-                icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-                onClick={() => setCollapsed(!collapsed)}
-              />
-            </div>
 
-            <Menu
-              mode="inline"
-              inlineCollapsed={collapsed}
-              selectedKeys={[selectedKey]}
-              onClick={({ key }) => setSelectedKey(key)}
-              items={menuItems}
+      <div className="user-page-wrapper">
+        {/* Sidebar */}
+        <div className={`user-sidebar ${collapsed ? "collapsed" : ""}`}>
+          <div className="sidebar-toggle">
+            <Button
+              type="text"
+              icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+              onClick={() => setCollapsed(!collapsed)}
             />
           </div>
-
-          <div className="user-main-content">{renderContent()}</div>
+          <Menu
+            mode="inline"
+            inlineCollapsed={collapsed}
+            selectedKeys={[selectedKey]}
+            onClick={({ key }) => setSelectedKey(key)}
+            items={menuItems}
+          />
         </div>
+
+        {/* Content Area */}
+        <div className="user-main-content">{renderContent()}</div>
       </div>
 
-      {/* Modal Face ID */}
+      {/* Modal Face ID - Nâng cấp giao diện Modal */}
       <Modal
-        visible={faceModalVisible}
+        open={faceModalVisible}
         title={
-          faceAction === "register" ? "Đăng ký Face ID" : "Check-in Face ID"
+          faceAction === "register"
+            ? "📸 Thiết lập Face ID"
+            : "🔍 Xác thực khuôn mặt"
         }
         onCancel={closeFaceModal}
         onOk={handleFaceConfirm}
+        okText="Xác nhận"
+        cancelText="Hủy"
+        centered
+        destroyOnClose
+        width={450}
       >
-        <video ref={videoRef} width="100%" height="auto" />
+        <style>{`
+    .video-box { 
+      border-radius: 12px; 
+      overflow: hidden; 
+      background: #000; 
+      position: relative; 
+      border: 4px solid #fff;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+    .scan-overlay { 
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+      width: 200px; height: 200px; border: 2px solid #1890ff; border-radius: 50%; 
+      box-shadow: 0 0 0 1000px rgba(0,0,0,0.6); 
+    }
+    .scan-line {
+      position: absolute; top: 0; left: 0; width: 100%; height: 2px;
+      background: #1890ff; box-shadow: 0 0 15px #1890ff;
+      animation: scan 2s linear infinite;
+    }
+    @keyframes scan { 0% { top: 0; } 100% { top: 100%; } }
+  `}</style>
+
+        <div className="video-box">
+          <video
+            ref={videoRef}
+            width="100%"
+            autoPlay
+            muted
+            playsInline
+            style={{ transform: "scaleX(-1)" }} // Lật gương cho khách dễ căn chỉnh
+          />
+          <div className="scan-overlay">
+            <div className="scan-line"></div>
+          </div>
+        </div>
+
+        {faceMessage && (
+          <div style={{ marginTop: 20, textAlign: "center" }}>
+            <Text
+              strong
+              type={faceMessageType === "success" ? "success" : "danger"}
+            >
+              {faceMessageType === "success" ? (
+                <CheckCircleOutlined />
+              ) : (
+                <CloseCircleOutlined />
+              )}{" "}
+              {faceMessage}
+            </Text>
+          </div>
+        )}
       </Modal>
+
+      {/* Modal Map */}
       <Modal
-        visible={mapModalVisible}
-        title="Bản đồ địa điểm"
+        open={mapModalVisible}
+        title="📍 Vị trí sự kiện"
         onCancel={closeMapModal}
         footer={null}
-        width={600}
+        width={800}
+        centered
       >
         {mapLocation && (
           <iframe
             width="100%"
-            height="400"
-            style={{ border: 0 }}
+            height="450"
+            style={{ border: 0, borderRadius: "8px" }}
             loading="lazy"
             allowFullScreen
-            src={`https://www.google.com/maps?q=${encodeURIComponent(
+            src={`https://maps.google.com/maps?q=${encodeURIComponent(
               mapLocation
             )}&output=embed`}
           />
         )}
       </Modal>
-    </>
+    </div>
   );
 };
 

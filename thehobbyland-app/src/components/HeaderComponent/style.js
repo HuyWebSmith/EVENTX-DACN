@@ -2,11 +2,12 @@ import { Row } from "antd";
 import styled from "styled-components";
 export const WrapperHeader = styled(Row)`
   padding: 10px 120px;
-  background-color: #2dc275;
+  background-color: #fff;
   gap: 16px;
   flex-wrap: nowrap;
   margin-left: 0 !important;
   margin-right: 0 !important;
+  border-bottom: 1px solid #efefef;
 `;
 
 export const WrapperTextHeader = styled.span`
@@ -19,20 +20,20 @@ export const WrapperTextHeader = styled.span`
 export const WrapperHeaderAccount = styled.div`
   display: flex;
   align-items: center;
-  color: #fff;
+  color: #1d2636;
   gap: 10px;
   font-size: 12px;
 `;
 
 export const WrapperTextHeaderSmall = styled.span`
   font-size: 12px;
-  color: #fff;
+  color: #1d2636;
   text-align: center;
   white-space: nowrap;
 `;
 export const WrapperContentPopup = styled.p`
   cursor: pointer;
   &:hover {
-    color: #2dc275;
+    color: #83c6f0;
   }
 `;

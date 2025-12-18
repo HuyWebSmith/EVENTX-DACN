@@ -1,0 +1,19 @@
+.WrapperBanner {
+  font-size: 200px;
+  font-weight: 900;
+  background-image: url(../../assets/images/mountain-landscape-pine-forest-river-under-purple-sky-nature-summer-scenery-vector-illustration-cartoon-panorama-tree-211869792.webp);
+  background-size: contain;
+  background-clip: text;
+  color: transparent;
+  animation: animate 20s linear infinite;
+  margin-bottom: -50px;
+}
+@keyframes animate {
+  to {
+    background-position-x: -500px;
+  }
+}
+.container {
+  display: flex;
+  justify-content: center;
+}

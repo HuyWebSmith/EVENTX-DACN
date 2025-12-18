@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const userController = require("../controllers/UserController");
+
 const {
   authMiddleWare,
   authUserMiddleWare,
@@ -18,4 +19,7 @@ router.get(
 );
 router.post("/refresh-token", userController.refreshToken);
 router.get("/delete-many", authMiddleWare, userController.deleteMany);
+router.post("/resend-verify", userController.resendVerifyEmail);
+router.get("/verify-email", userController.verifyEmail);
+
 module.exports = router;

@@ -18,7 +18,8 @@ import EventTicketsPage from "../pages/EventTicketsPage/EventTicketsPage";
 import EventFilterPage from "../pages/EventFilterPage/EventFilterPage";
 import CheckInFaceId from "../pages/CheckInFaceId/CheckInFaceId";
 import WalletPage from "../pages/WalletPage/WalletPage";
-
+import VerifyEmailPage from "../pages/VerifyEmailPage/VerifyEmailPage";
+import WithdrawPage from "../pages/WithdrawPage/WithdrawPage";
 export const routes = [
   {
     path: "/",
@@ -123,5 +124,16 @@ export const routes = [
     path: "/wallet",
     page: WalletPage,
     isShowHeader: true,
+  },
+  {
+    path: "/wallet/withdraw",
+    page: WithdrawPage,
+    isShowHeader: true,
+  },
+
+  {
+    path: "/verify-email",
+    page: VerifyEmailPage,
+    isShowHeader: false,
   },
 ];

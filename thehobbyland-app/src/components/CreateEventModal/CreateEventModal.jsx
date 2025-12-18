@@ -406,20 +406,24 @@ const renderTicketFormList = () => (
             key={key}
             style={{
               display: "flex",
-              marginBottom: 10,
-              padding: 10,
-              border: "1px dashed #f0f0f0",
+              marginBottom: 15, // Tăng nhẹ khoảng cách vì nhiều trường hơn
+              padding: 15,
+              border: "1px dashed #d9d9d9",
+              borderRadius: "8px",
+              flexWrap: "wrap", // Cho phép rớt dòng nếu màn hình nhỏ
             }}
             align="start"
           >
+            {/* Tên loại vé */}
             <Form.Item
               {...restField}
               name={[name, "type"]}
-              rules={[{ required: true, message: "Loại vé" }]}
-              style={{ width: 120 }}
+              rules={[{ required: true, message: "Nhập tên vé" }]}
             >
-              <Input placeholder="Tên vé (VIP, Gen)" />
+              <Input placeholder="Tên vé (VIP, Gen)" style={{ width: 130 }} />
             </Form.Item>
+
+            {/* Giá vé */}
             <Form.Item
               {...restField}
               name={[name, "price"]}
@@ -427,14 +431,16 @@ const renderTicketFormList = () => (
             >
               <InputComponent
                 type="number"
-                placeholder="Giá"
-                style={{ width: 100 }}
+                placeholder="Giá (VND)"
+                style={{ width: 110 }}
               />
             </Form.Item>
+
+            {/* Số lượng */}
             <Form.Item
               {...restField}
               name={[name, "quantity"]}
-              rules={[{ required: true, message: "Số lượng" }]}
+              rules={[{ required: true, message: "SL" }]}
             >
               <InputComponent
                 type="number"
@@ -442,32 +448,65 @@ const renderTicketFormList = () => (
                 style={{ width: 80 }}
               />
             </Form.Item>
+
+            {/* --- TRƯỜNG MỚI: THỜI ĐIỂM BẮT ĐẦU BÁN --- */}
+            <Form.Item
+              {...restField}
+              name={[name, "ticketSaleStart"]}
+              label={<span style={{ fontSize: "12px" }}>Bắt đầu bán</span>}
+              labelCol={{ span: 24 }} // Đẩy label lên trên để tiết kiệm diện tích ngang
+            >
+              <DatePicker
+                showTime
+                format="YYYY-MM-DD HH:mm"
+                placeholder="Ngày/Giờ mở"
+                style={{ width: 160 }}
+              />
+            </Form.Item>
+
+            {/* --- TRƯỜNG MỚI: THỜI ĐIỂM KẾT THÚC BÁN --- */}
+            <Form.Item
+              {...restField}
+              name={[name, "ticketSaleEnd"]}
+              label={<span style={{ fontSize: "12px" }}>Kết thúc bán</span>}
+              labelCol={{ span: 24 }}
+            >
+              <DatePicker
+                showTime
+                format="YYYY-MM-DD HH:mm"
+                placeholder="Ngày/Giờ đóng"
+                style={{ width: 160 }}
+              />
+            </Form.Item>
+
+            {/* Ngày diễn ra sự kiện (giữ nguyên) */}
             <Form.Item
               {...restField}
               name={[name, "startDate"]}
-              rules={[{ required: true, message: "Ngày mở bán" }]}
+              rules={[{ required: true, message: "Bắt đầu" }]}
             >
-              <DatePicker placeholder="Diễn ra từ" style={{ width: 120 }} />
+              <DatePicker placeholder="Diễn ra từ" style={{ width: 130 }} />
             </Form.Item>
+
             <Form.Item
               {...restField}
               name={[name, "endDate"]}
-              rules={[{ required: true, message: "Ngày kết thúc" }]}
+              rules={[{ required: true, message: "Kết thúc" }]}
             >
-              <DatePicker placeholder="Kết thúc từ" style={{ width: 120 }} />
+              <DatePicker placeholder="Kết thúc" style={{ width: 130 }} />
             </Form.Item>
+
             <Form.Item {...restField} name={[name, "description"]}>
-              <InputComponent
-                placeholder="Mô tả vé (optional)"
-                style={{ width: 150 }}
-              />
+              <InputComponent placeholder="Mô tả" style={{ width: 150 }} />
             </Form.Item>
+
             <DeleteOutlined
               onClick={() => remove(name)}
-              style={{ color: "red", fontSize: 20, paddingTop: 8 }}
+              style={{ color: "red", fontSize: 20, paddingTop: 35 }} // Chỉnh lại padding do có label mới
             />
           </Space>
         ))}
+
         <Form.Item>
           <Button
             type="dashed"
@@ -475,7 +514,7 @@ const renderTicketFormList = () => (
             block
             icon={<PlusOutlined />}
           >
-            Thêm loại vé
+            Thêm loại vé mới
           </Button>
         </Form.Item>
       </>

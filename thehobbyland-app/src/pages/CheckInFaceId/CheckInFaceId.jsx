@@ -157,7 +157,7 @@ const CheckInFaceId = () => {
       const faceDescriptor = Array.from(detection.descriptor);
 
       const res = await axiosJWT.post(
-        "http://localhost:3000/api/orders/checkin-face",
+        "http://localhost:3000/api/checkin-order/checkin-face",
         {
           ticketCode: currentTicket?.ticketCode,
           faceDescriptor,

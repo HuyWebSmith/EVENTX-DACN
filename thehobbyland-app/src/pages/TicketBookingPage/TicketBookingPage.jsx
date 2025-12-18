@@ -9,99 +9,31 @@ import {
   XCircle,
   Info,
   Zap,
+  Ticket,
 } from "lucide-react";
 import { useSelector } from "react-redux";
 import { useNavigate, useParams } from "react-router-dom";
-// Giả định BillSummary đã được import chính xác
 import BillSummary from "../../components/BillSummary/BillSummary";
 
-// --- CÁC HẰNG SỐ VÀ STYLE ---
-
 const COLORS = {
-  primary: "#2DC275", // green-600
-  primaryLight: "#eef2ff", // indigo-50
-  secondary: "#1f2937", // gray-800
-  background: "#f9fafb", // gray-50
-  success: "#10b981", // green-600
-  error: "#ef4444", // red-500
-  warning: "#f97316", // orange-600
-  held: "#f59e0b", // yellow-600
-  border: "#d1d5db", // gray-300
-};
-
-const styles = {
-  appContainer: {
-    minHeight: "100vh",
-    backgroundColor: COLORS.background,
-    padding: "2rem 1rem",
-    fontFamily: '"Inter", sans-serif',
-  },
-  mainContent: {
-    maxWidth: "72rem",
-    margin: "0 auto",
-  },
-  header: {
-    textAlign: "center",
-    marginBottom: "2.5rem",
-    padding: "2rem",
-    backgroundColor: "white",
-    boxShadow:
-      "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
-    borderRadius: "1rem",
-    borderTop: `8px solid ${COLORS.primary}`,
-  },
-  cardList: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "1.5rem",
-  },
-  loadingContainer: {
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    minHeight: "100vh",
-    backgroundColor: COLORS.background,
-  },
-  loadingCard: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    padding: "2.5rem",
-    backgroundColor: "white",
-    borderRadius: "1rem",
-    boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)",
-    color: COLORS.primary,
-    gap: "0.75rem",
-  },
+  primary: "#1e293b",
+  secondary: "#1e293b",
+  accent: "#3b82f6",
+  background: "#f1f5f9",
+  surface: "#ffffff",
+  border: "#e2e8f0",
+  textMuted: "#64748b",
+  held: "#f59e0b",
+  error: "#ef4444",
 };
 
 const API_BASE_URL = "http://localhost:3001";
-
-// --- HÀM TÍNH TOÁN ---
-
-/**
- * Tính tổng số lượng và tổng tiền từ danh sách vé và số lượng đã chọn.
- */
-const calculateBillFromQuantities = (allTickets, quantities) => {
-  return allTickets.reduce(
-    (acc, t) => {
-      const qty = quantities[t._id] || 0;
-      acc.totalQuantity += qty;
-      acc.totalPrice += t.price * qty;
-      return acc;
-    },
-    { totalQuantity: 0, totalPrice: 0 }
-  );
-};
-
-// --- COMPONENT CHÍNH ---
 
 const TicketBookingPage = () => {
   const navigate = useNavigate();
   const { eventId } = useParams();
   const currentUserId = useSelector((state) => state.user?.id);
 
-  // State
   const [tickets, setTickets] = useState([]);
   const [selectedQuantities, setSelectedQuantities] = useState({});
   const [totalQuantity, setTotalQuantity] = useState(0);
@@ -110,355 +42,8 @@ const TicketBookingPage = () => {
   const [error, setError] = useState(null);
   const [isFetching, setIsFetching] = useState(false);
   const [toast, setToast] = useState(null);
-  const [currentHoldId, setCurrentHoldId] = useState(null);
 
-  // Hàm hiển thị Toast Notification
-  const showToast = useCallback((message, type, duration = 3000) => {
-    setToast({ message, type });
-    const timer = setTimeout(() => setToast(null), duration);
-    return () => clearTimeout(timer);
-  }, []);
-
-  // Hàm gọi API Backend để lấy danh sách vé (Đã tối ưu dependencies)
-  const fetchTickets = useCallback(async () => {
-    if (!eventId) {
-      setError("Lỗi: Không tìm thấy Event ID trong URL.");
-      setLoading(false);
-      return;
-    }
-
-    // Chỉ set loading/fetching nếu chưa có dữ liệu vé
-    if (tickets.length === 0) setLoading(true);
-    setIsFetching(true);
-    setError(null);
-
-    const url = `${API_BASE_URL}/api/tickets/event/${eventId}`;
-
-    try {
-      const response = await fetch(url);
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `Lỗi HTTP: ${response.status}`);
-      }
-
-      const result = await response.json();
-
-      if (result.status === "OK") {
-        setTickets(result.data); // Chỉ cập nhật tickets
-      } else {
-        throw new Error(result.message || "Phản hồi API không hợp lệ.");
-      }
-    } catch (err) {
-      console.error("Lỗi khi tải dữ liệu vé:", err);
-      if (tickets.length === 0) {
-        setError(
-          `Không thể kết nối đến Backend (${API_BASE_URL}) hoặc lỗi: ${err.message}`
-        );
-      } else {
-        showToast("Lỗi cập nhật kho vé. Vui lòng kiểm tra kết nối.", "error");
-      }
-    } finally {
-      setLoading(false);
-      setIsFetching(false);
-    }
-  }, [eventId, showToast, tickets.length]);
-  // tickets.length chỉ dùng để kiểm tra hiển thị loading/error, không gây re-render loop
-
-  // Hàm cập nhật số lượng vé đã chọn
-  const updateQuantity = useCallback(
-    (ticketId, newQty) => {
-      setSelectedQuantities((prev) => {
-        const updated = { ...prev, [ticketId]: newQty };
-
-        // Tính toán tổng
-        const { totalQuantity, totalPrice } = calculateBillFromQuantities(
-          tickets,
-          updated
-        );
-
-        // Lưu vào localStorage dùng `updated` chứ không dùng `selectedQuantities`
-        localStorage.setItem(
-          "ticketBill",
-          JSON.stringify({
-            selectedTickets: tickets
-              .map((t) => ({
-                _id: t._id,
-                name: t.type,
-                price: t.price,
-                quantity: updated[t._id] || 0,
-              }))
-              .filter((t) => t.quantity > 0),
-            totalQuantity,
-            totalPrice,
-          })
-        );
-
-        setTotalQuantity(totalQuantity);
-        setTotalPrice(totalPrice);
-
-        return updated;
-      });
-    },
-    [tickets] // Vẫn cần tickets để tính toán
-  );
-
-  // --- HÀM GIỮ VÉ (HOLD) ---
-
-  const handleHoldTickets = async (ticketId, ticketName, quantity) => {
-    if (quantity <= 0) {
-      return;
-    }
-
-    if (!currentUserId) {
-      showToast("Bạn cần đăng nhập để đặt vé.", "error");
-      return;
-    }
-
-    const payload = {
-      showtimeId: eventId,
-      userId: currentUserId,
-      ticketId: ticketId,
-      quantity: quantity,
-    };
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/tickets/hold`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      const result = await response.json();
-
-      if (result.status !== "OK") {
-        throw new Error(result.message);
-      }
-
-      return {
-        success: true,
-        holdId: result.data.holdId,
-        message: `Đã giữ ${quantity} vé ${ticketName}.`,
-      };
-    } catch (err) {
-      return {
-        success: false,
-        message: `Giữ vé ${ticketName} thất bại: ${err.message}`,
-      };
-    }
-  };
-
-  const handleHoldAllTickets = async () => {
-    const ticketsToHold = tickets
-      .map((ticket) => ({
-        ...ticket,
-        quantity: selectedQuantities[ticket._id] || 0,
-      }))
-      .filter((ticket) => ticket.quantity > 0);
-
-    if (!ticketsToHold.length) {
-      showToast("Chưa có vé hợp lệ để giữ.", "warning");
-      return;
-    }
-
-    showToast("Đang xử lý giữ vé...", "info");
-
-    try {
-      const holdPromises = ticketsToHold.map((ticket) =>
-        handleHoldTickets(ticket._id, ticket.name, ticket.quantity)
-      );
-
-      const results = await Promise.all(holdPromises);
-
-      const failedHolds = results.filter((res) => !res.success);
-      const successfulHolds = results.filter((res) => res.success);
-
-      if (failedHolds.length > 0) {
-        const errorMessages = failedHolds.map((f) => f.message).join(" | ");
-        showToast(
-          `Giữ vé thất bại (${failedHolds.length} loại vé): ${errorMessages}`,
-          "error",
-          8000
-        );
-      }
-
-      // Thay thế đoạn navigate cũ bằng đoạn này:
-
-      if (successfulHolds.length > 0) {
-        const holdId = successfulHolds[0].holdId;
-
-        // TẠO DỮ LIỆU CẦN TRUYỀN QUA STATE
-        const checkoutData = {
-          selectedQuantities: selectedQuantities,
-          totalQuantity: totalQuantity,
-          totalPrice: totalPrice,
-          tickets: tickets, // Toàn bộ danh sách vé
-        };
-
-        // Xóa localStorage (vì đã có dữ liệu trong state)
-        // localStorage.removeItem("ticketBill");
-
-        showToast(
-          "Đã giữ vé thành công! Đang chuyển hướng đến trang thanh toán.",
-          "success"
-        );
-
-        // TRUYỀN DỮ LIỆU QUA NAVIGATION STATE
-        navigate("/checkout", {
-          state: {
-            holdId: holdId,
-            checkoutData: checkoutData, // <--- TRUYỀN DATA MỚI
-          },
-        });
-      } else if (failedHolds.length === ticketsToHold.length) {
-        showToast("Không giữ được vé nào. Vui lòng kiểm tra lại.", "error");
-      }
-    } catch (err) {
-      showToast(`Lỗi không xác định khi giữ vé: ${err.message}`, "error");
-    }
-  };
-
-  // --- USE EFFECT VÀ LOGIC TẢI ---
-
-  // 1. Tải dữ liệu từ localStorage và thiết lập Interval gọi API
-  useEffect(() => {
-    // Tải dữ liệu từ localStorage
-    const savedBill = JSON.parse(localStorage.getItem("ticketBill"));
-    if (savedBill) {
-      setSelectedQuantities(savedBill.selectedQuantities || {});
-      setTotalQuantity(savedBill.totalQuantity || 0);
-      setTotalPrice(savedBill.totalPrice || 0);
-    }
-
-    // Tải danh sách vé và thiết lập cập nhật định kỳ
-    if (eventId) {
-      fetchTickets();
-      const interval = setInterval(fetchTickets, 5000);
-      return () => clearInterval(interval);
-    }
-  }, [eventId, fetchTickets]);
-
-  // 2. Khởi tạo selectedQuantities khi tickets được tải lần đầu
-  // Chỉ chạy khi tickets có dữ liệu VÀ selectedQuantities rỗng
-  useEffect(() => {
-    const hasTickets = tickets.length > 0;
-    const isQuantitiesEmpty = Object.keys(selectedQuantities).length === 0;
-
-    if (hasTickets && isQuantitiesEmpty) {
-      const initialTicketId = tickets[0]._id;
-      const initialQuantities = { [initialTicketId]: 1 };
-
-      // Set state
-      setSelectedQuantities(initialQuantities);
-
-      // Tính toán và lưu localStorage ngay lập tức
-      const { totalQuantity, totalPrice } = calculateBillFromQuantities(
-        tickets,
-        initialQuantities
-      );
-      setTotalQuantity(totalQuantity);
-      setTotalPrice(totalPrice);
-
-      localStorage.setItem(
-        "ticketBill",
-        JSON.stringify({
-          selectedTickets: tickets
-            .map((t) => ({
-              _id: t._id,
-              name: t.type,
-              price: t.price,
-              quantity: initialQuantities[t._id] || 0,
-            }))
-            .filter((t) => t.quantity > 0),
-          totalQuantity,
-          totalPrice,
-        })
-      );
-    }
-  }, [tickets, selectedQuantities]); // Kích hoạt khi tickets được fetch, dừng lại khi selectedQuantities có giá trị
-
-  // 3. Cập nhật state tổng tiền/số lượng khi selectedQuantities thay đổi
-  // (Đã tích hợp vào updateQuantity để BillSummary render ngay lập tức, nhưng vẫn giữ đây làm fallback/kiểm tra)
-  // Trong trường hợp này, useEffect này có thể được loại bỏ vì updateQuantity đã đảm nhiệm logic setTotal/setPrice.
-  /*
-  useEffect(() => {
-    const { totalQuantity, totalPrice } = calculateBillFromQuantities(
-      tickets,
-      selectedQuantities
-    );
-    // Nếu giá trị KHÔNG thay đổi so với state hiện tại, React sẽ không re-render
-    setTotalQuantity(totalQuantity); 
-    setTotalPrice(totalPrice);
-  }, [tickets, selectedQuantities]); 
-  */
-
-  // --- COMPONENT CON UI (Không thay đổi) ---
-
-  // Toast Notification Component
-  const ToastNotification = ({ message, type }) => {
-    const toastStyles = {
-      base: {
-        position: "fixed",
-        top: "1rem",
-        right: "1rem",
-        padding: "1rem",
-        borderRadius: "0.75rem",
-        boxShadow:
-          "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
-        zIndex: 50,
-        transition: "transform 300ms ease-out",
-        display: "flex",
-        alignItems: "center",
-        minWidth: "300px",
-        fontFamily: '"Inter", sans-serif',
-      },
-      success: { backgroundColor: COLORS.success, color: "white" },
-      error: { backgroundColor: COLORS.error, color: "white" },
-      warning: { backgroundColor: COLORS.warning, color: "white" },
-      info: { backgroundColor: COLORS.primary, color: "white" },
-      icon: {
-        width: "1.5rem",
-        height: "1.5rem",
-        marginRight: "0.75rem",
-        flexShrink: 0,
-      },
-      message: { fontWeight: "500", fontSize: "1rem" },
-    };
-
-    let icon, colorStyle;
-
-    switch (type) {
-      case "success":
-        icon = <CheckCircle style={toastStyles.icon} />;
-        colorStyle = toastStyles.success;
-        break;
-      case "error":
-        icon = <XCircle style={toastStyles.icon} />;
-        colorStyle = toastStyles.error;
-        break;
-      case "warning":
-        icon = <AlertTriangle style={toastStyles.icon} />;
-        colorStyle = toastStyles.warning;
-        break;
-      case "info":
-      default:
-        icon = (
-          <Info
-            style={{ ...toastStyles.icon, animation: "pulse 2s infinite" }}
-          />
-        );
-        colorStyle = toastStyles.info;
-        break;
-    }
-
-    return (
-      <div style={{ ...toastStyles.base, ...colorStyle }}>
-        {icon}
-        <span style={toastStyles.message}>{message}</span>
-      </div>
-    );
-  };
-
-  // Hàm định dạng tiền tệ Việt Nam
+  // Helper định dạng tiền
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat("vi-VN", {
       style: "currency",
@@ -466,559 +51,472 @@ const TicketBookingPage = () => {
     }).format(amount);
   };
 
-  // QuantitySelector Component
-  const QuantitySelector = React.memo(
-    ({ ticketId, maxQuantity, quantity, onChange }) => {
-      const handleIncrease = () => {
-        if (quantity < maxQuantity) {
-          onChange(ticketId, quantity + 1);
-        }
-      };
+  const showToast = useCallback((message, type) => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  }, []);
 
-      const handleDecrease = () => {
-        if (quantity > 0) {
-          onChange(ticketId, quantity - 1);
-        }
-      };
-
-      const buttonBaseStyle = {
-        width: "40px",
-        height: "100%",
-        background: "#f3f4f6",
-        border: "none",
-        fontSize: "1.25rem",
-        cursor: "pointer",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        color: COLORS.secondary,
-        transition: "background-color 200ms",
-      };
-
-      const disabledStyle = {
-        cursor: "not-allowed",
-        opacity: 0.5,
-      };
-
-      return (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            border: `1px solid ${COLORS.border}`,
-            borderRadius: "8px",
-            overflow: "hidden",
-            width: "120px",
-            height: "40px",
-          }}
-        >
-          {/* Nút trừ */}
-          <button
-            onClick={handleDecrease}
-            disabled={quantity <= 0}
-            style={{
-              ...buttonBaseStyle,
-              ...(quantity <= 0 ? disabledStyle : {}),
-            }}
-          >
-            <Minus size={16} />
-          </button>
-
-          {/* Số lượng */}
-          <div
-            style={{
-              flex: 1,
-              textAlign: "center",
-              fontWeight: "600",
-            }}
-          >
-            {quantity}
-          </div>
-
-          {/* Nút cộng */}
-          <button
-            onClick={handleIncrease}
-            disabled={quantity >= maxQuantity}
-            style={{
-              ...buttonBaseStyle,
-              ...(quantity >= maxQuantity ? disabledStyle : {}),
-            }}
-          >
-            <Plus size={16} />
-          </button>
-        </div>
+  const fetchTickets = useCallback(async () => {
+    if (!eventId) return;
+    setIsFetching(true);
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/tickets/event/${eventId}`
       );
+      const result = await response.json();
+      if (result.status === "OK") {
+        setTickets(result.data);
+      }
+    } catch (err) {
+      if (tickets.length === 0) setError("Không thể kết nối đến máy chủ.");
+    } finally {
+      setLoading(false);
+      setIsFetching(false);
     }
+  }, [eventId, tickets.length]);
+
+  useEffect(() => {
+    fetchTickets();
+    const interval = setInterval(fetchTickets, 5000);
+    return () => clearInterval(interval);
+  }, [fetchTickets]);
+
+  const updateQuantity = useCallback(
+    (ticketId, newQty) => {
+      setSelectedQuantities((prev) => {
+        const updated = { ...prev, [ticketId]: newQty };
+
+        // Tính toán bill
+        let totalQty = 0;
+        let totalP = 0;
+        tickets.forEach((t) => {
+          const q = updated[t._id] || 0;
+          totalQty += q;
+          totalP += q * t.price;
+        });
+
+        setTotalQuantity(totalQty);
+        setTotalPrice(totalP);
+        return updated;
+      });
+    },
+    [tickets]
   );
 
-  // Card hiển thị thông tin vé
-  const TicketCard = ({ ticket }) => {
-    const isSoldOut = ticket.availability <= 0;
-    const isLowStock = ticket.availability > 0 && ticket.availability <= 10;
-    const selectedQty = selectedQuantities[ticket._id] || 0;
-    const totalCost = ticket.price * selectedQty;
+  // --- HÀM GIỮ VÉ VÀ TRUYỀN DỮ LIỆU ---
+  const handleHoldAllTickets = async () => {
+    const itemsToHold = tickets
+      .filter((t) => (selectedQuantities[t._id] || 0) > 0)
+      .map((t) => ({
+        id: t._id,
+        name: t.name || t.type,
+        price: t.price,
+        quantity: selectedQuantities[t._id],
+        subtotal: t.price * selectedQuantities[t._id],
+      }));
 
-    const statusColor = isSoldOut
-      ? COLORS.error
-      : isLowStock
-      ? COLORS.warning
-      : COLORS.success;
+    if (itemsToHold.length === 0) {
+      showToast("Vui lòng chọn vé!", "warning");
+      return;
+    }
 
-    const baseCardStyle = {
-      padding: "2rem 2rem",
-      border: `1px solid ${COLORS.border}`,
-      borderRadius: "1rem",
-      boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-      display: "flex",
-      flexDirection: "column",
-      justifyContent: "space-between",
-      alignItems: "flex-start",
-      gap: "1.25rem",
-      transition: "box-shadow 300ms, opacity 300ms",
-    };
+    try {
+      // Gửi request hold lên server (giả định dùng item đầu tiên để lấy holdId đại diện)
+      const response = await fetch(`${API_BASE_URL}/api/tickets/hold`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          showtimeId: eventId,
+          userId: currentUserId,
+          ticketId: itemsToHold[0].id,
+          quantity: itemsToHold[0].quantity,
+        }),
+      });
+      const result = await response.json();
 
-    const cardStyle = {
-      ...baseCardStyle,
-      backgroundColor: isSoldOut ? "#f3f4f6" : "white",
-      opacity: isSoldOut ? 0.9 : 1,
-      borderLeft: `4px solid ${isSoldOut ? "#9ca3af" : COLORS.primary}`,
-    };
-
-    return (
-      <div style={cardStyle}>
-        <div
-          style={{
-            display: "flex",
-            width: "100%",
-            flexWrap: "wrap",
-            gap: "1.5rem",
-          }}
-        >
-          {/* 1. Tên vé & Giá */}
-          <div style={{ flexGrow: 1, minWidth: "200px", paddingRight: "1rem" }}>
-            <h3
-              style={{
-                fontSize: "1.5rem",
-                fontWeight: "800",
-                color: isSoldOut ? "#6b7280" : COLORS.secondary,
-                textDecoration: isSoldOut ? "line-through" : "none",
-              }}
-            >
-              {ticket.name}
-            </h3>
-            <p
-              style={{
-                marginTop: "0.25rem",
-                fontSize: "1.875rem",
-                fontWeight: "900",
-                color: isSoldOut ? "#9ca3af" : COLORS.error,
-              }}
-            >
-              {formatCurrency(ticket.price)}
-            </p>
-            <div
-              style={{
-                marginTop: "0.75rem",
-                fontSize: "0.875rem",
-                color: COLORS.primary,
-                fontWeight: "500",
-                backgroundColor: COLORS.primaryLight,
-                padding: "0.5rem",
-                borderRadius: "0.5rem",
-                display: "inline-block",
-              }}
-            >
-              {selectedQty > 0
-                ? `Tổng tiền: ${formatCurrency(totalCost)}`
-                : "Chọn số lượng để đặt"}
-            </div>
-          </div>
-
-          {/* 2. Trạng thái số lượng */}
-          <div
-            style={{
-              minWidth: "200px",
-              paddingLeft: "1.5rem",
-              borderLeft: "1px solid #e5e7eb",
-              fontSize: "0.875rem",
-              color: "#4b5563",
-              display: "flex",
-              flexDirection: "column",
-              gap: "0.5rem",
-              justifyContent: "center",
-            }}
-          >
-            <h4
-              style={{
-                fontSize: "1rem",
-                fontWeight: "bold",
-                color: "#374151",
-                marginBottom: "0.5rem",
-              }}
-            >
-              Thông tin Kho vé:
-            </h4>
-            {/* Đang giữ */}
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <span style={{ display: "flex", alignItems: "center" }}>
-                <Clock
-                  size={16}
-                  style={{ marginRight: "0.25rem", color: COLORS.held }}
-                />
-                Đang giữ (15p):
-              </span>
-              <span style={{ fontWeight: "800", color: COLORS.held }}>
-                {ticket.heldCount}
-              </span>
-            </div>
-            {/* Đã bán */}
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <span>Đã bán:</span>
-              <span style={{ fontWeight: "800", color: COLORS.secondary }}>
-                {ticket.sold}
-              </span>
-            </div>
-            {/* Tổng số vé */}
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                borderTop: "1px solid #f3f4f6",
-                paddingTop: "0.5rem",
-              }}
-            >
-              <span>Tổng số vé:</span>
-              <span style={{ fontWeight: "bold", color: "#374151" }}>
-                {ticket.quantity - ticket.heldCount}
-              </span>
-            </div>
-          </div>
-
-          {/* 3. Số lượng còn lại & Chọn mua */}
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "flex-end",
-              gap: "1rem",
-              minWidth: "250px",
-              paddingTop: "1rem",
-              borderTop: "1px solid #e5e7eb",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.75rem",
-                padding: "0.75rem",
-                backgroundColor: COLORS.primaryLight,
-                borderRadius: "0.75rem",
-                width: "100%",
-                justifyContent: "space-between",
-              }}
-            >
-              {/* Trạng thái còn lại */}
-              <div
-                style={{
-                  fontSize: "1rem",
-                  fontWeight: "bold",
-                  display: "flex",
-                  alignItems: "center",
-                  color: statusColor,
-                }}
-              >
-                {isSoldOut ? (
-                  <>
-                    <XCircle size={20} style={{ marginRight: "0.5rem" }} /> HẾT
-                    VÉ
-                  </>
-                ) : isLowStock ? (
-                  <>
-                    <Zap
-                      size={20}
-                      style={{
-                        marginRight: "0.5rem",
-                        animation: "pulse 1s infinite",
-                      }}
-                    />
-                    SẮP HẾT
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle size={20} style={{ marginRight: "0.5rem" }} />
-                    CÒN LẠI
-                  </>
-                )}
-              </div>
-              {/* Số lượng khả dụng */}
-              <div
-                style={{
-                  fontSize: "2.25rem",
-                  fontWeight: "900",
-                  letterSpacing: "-0.025em",
-                  color: statusColor,
-                }}
-              >
-                {ticket.availability}
-              </div>
-            </div>
-
-            {/* Bộ chọn số lượng */}
-            {!isSoldOut && (
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.75rem",
-                  width: "100%",
-                  justifyContent: "flex-end",
-                }}
-              >
-                <QuantitySelector
-                  ticketId={ticket._id}
-                  maxQuantity={ticket.availability}
-                  quantity={selectedQuantities[ticket._id] || 0}
-                  onChange={updateQuantity}
-                />
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    );
+      if (result.status === "OK") {
+        // TRUYỀN DỮ LIỆU CHI TIẾT SANG CHECKOUT
+        navigate("/checkout", {
+          state: {
+            holdId: result.data.holdId,
+            checkoutData: {
+              items: itemsToHold,
+              selectedQuantities,
+              totalPrice: totalPrice,
+              totalQuantity: totalQuantity,
+              eventId: eventId,
+              userId: currentUserId,
+            },
+          },
+        });
+      } else {
+        showToast(result.message, "error");
+      }
+    } catch (err) {
+      showToast("Lỗi hệ thống khi giữ vé", "error");
+    }
   };
 
-  // --- RENDER CHÍNH ---
-
-  // Hiển thị Loading
-  if (loading && tickets.length === 0) {
+  if (loading && tickets.length === 0)
     return (
-      <div style={styles.loadingContainer}>
-        <div style={styles.loadingCard}>
-          <Loader2
-            style={{
-              width: "2.5rem",
-              height: "2.5rem",
-              animation: "spin 1s linear infinite",
-            }}
-          />
-          <span style={{ fontSize: "1.25rem", fontWeight: "600" }}>
-            Đang tải danh sách vé...
-          </span>
-        </div>
-        <style>
-          {`
-            @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-            @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
-          `}
-        </style>
+      <div style={styles.center}>
+        <Loader2 className="spin" size={40} />
       </div>
     );
-  }
 
-  // Hiển thị Lỗi kết nối/Event ID
-  if (error && tickets.length === 0) {
-    const errorCardStyle = {
-      padding: "2rem",
-      backgroundColor: "white",
-      borderLeft: `8px solid ${COLORS.error}`,
-      borderRadius: "1rem",
-      boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)",
-      maxWidth: "72rem",
-      margin: "2.5rem auto",
-    };
-
-    return (
-      <div style={errorCardStyle}>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "flex-start",
-            color: COLORS.error,
-          }}
-        >
-          <AlertTriangle
-            style={{
-              width: "2rem",
-              height: "2rem",
-              marginRight: "1rem",
-              marginTop: "0.25rem",
-              flexShrink: 0,
-            }}
-          />
-          <div>
-            <p style={{ fontSize: "1.5rem", fontWeight: "bold" }}>
-              Lỗi Kết Nối hoặc Dữ liệu
-            </p>
-            <p
-              style={{
-                marginTop: "0.75rem",
-                fontSize: "1rem",
-                color: COLORS.error,
-                fontWeight: "500",
-              }}
-            >
-              {error}
-            </p>
-            <p
-              style={{
-                marginTop: "1rem",
-                fontSize: "0.875rem",
-                fontStyle: "italic",
-                color: "#6b7280",
-              }}
-            >
-              Event ID:
-              <span style={{ fontFamily: "monospace" }}>{eventId}</span>. Vui
-              lòng đảm bảo Backend đang chạy.
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Render Component Chính
   return (
-    <div style={styles.appContainer}>
-      <style>
-        {`
-            @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-            @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
-          `}
-      </style>
+    <div style={styles.page}>
+      {toast && (
+        <div style={{ ...styles.toast, backgroundColor: COLORS[toast.type] }}>
+          {toast.message}
+        </div>
+      )}
 
-      {toast && <ToastNotification message={toast.message} type={toast.type} />}
-
-      <div style={styles.mainContent}>
-        {/* Header */}
+      <div style={styles.container}>
         <header style={styles.header}>
-          <h1
-            style={{
-              fontSize: "2.25rem",
-              fontWeight: "800",
-              color: COLORS.secondary,
-              letterSpacing: "-0.025em",
-            }}
-          >
-            Giao diện Đặt vé Sự kiện
-          </h1>
-          <p
-            style={{
-              fontSize: "1.125rem",
-              color: "#6b7280",
-              marginTop: "0.5rem",
-            }}
-          >
-            Hệ thống Giữ chỗ (Holding System) theo thời gian thực
-          </p>
-          <div
-            style={{
-              marginTop: "1rem",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: "0.875rem",
-              color: "#6b7280",
-              gap: "1rem",
-            }}
-          >
-            <span style={{ display: "flex", alignItems: "center" }}>
-              <Clock
-                size={16}
-                style={{
-                  marginRight: "0.25rem",
-                  color: "#3b82f6",
-                  animation: "pulse 1s infinite",
-                }}
-              />
-              Cập nhật:
-              <span style={{ fontWeight: "600", marginLeft: "0.25rem" }}>
-                5 giây/lần
-              </span>
-              {isFetching && (
-                <Loader2
-                  size={16}
-                  style={{
-                    marginLeft: "0.5rem",
-                    animation: "spin 1s linear infinite",
-                    color: COLORS.primary,
-                  }}
-                />
-              )}
-            </span>
-            <div
-              style={{
-                height: "1rem",
-                width: "1px",
-                backgroundColor: "#d1d5db",
-              }}
-            ></div>
-            <span
-              style={{
-                fontSize: "0.75rem",
-                color: COLORS.primary,
-                fontWeight: "500",
-              }}
-            >
-              Event ID:
-              <span style={{ fontFamily: "monospace", fontWeight: "bold" }}>
-                {eventId}
-              </span>
-            </span>
-          </div>
-          <p
-            style={{
-              marginTop: "0.5rem",
-              fontSize: "0.75rem",
-              color: "#9ca3af",
-            }}
-          >
-            User ID (Mock): {currentUserId}
-          </p>
+          <h1 style={styles.title}>Giao diện Đặt vé Sự kiện</h1>
+          <p style={styles.subtitle}>Hệ thống Giữ chỗ theo thời gian thực</p>
         </header>
 
-        {/* Danh sách vé và Bill Summary */}
-        <div style={styles.cardList}>
-          {tickets.length > 0
-            ? tickets.map((ticket) => (
-                <TicketCard key={ticket._id} ticket={ticket} />
-              ))
-            : !loading &&
-              !error && (
-                <div
-                  style={{
-                    padding: "2rem",
-                    backgroundColor: "#fffbe3",
-                    borderLeft: "4px solid #f59e0b",
-                    color: "#b45309",
-                    borderRadius: "0.5rem",
-                    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-                  }}
-                >
-                  <p style={{ fontWeight: "600", fontSize: "1.125rem" }}>
-                    Không tìm thấy loại vé nào cho sự kiện này.
-                  </p>
-                  <p style={{ fontSize: "0.875rem", marginTop: "0.25rem" }}>
-                    Vui lòng kiểm tra lại Event ID: {eventId} hoặc dữ liệu trong
-                    MongoDB.
-                  </p>
-                </div>
-              )}
+        <div style={styles.mainLayout}>
+          <div style={styles.list}>
+            {tickets.map((ticket) => (
+              <div key={ticket._id} style={styles.card}>
+                {/* Cột 1: Thông tin định danh & Giá */}
+                <div style={styles.cardLeft}>
+                  <div style={extendedStyles.ticketTypeBadge}>
+                    {ticket.type}
+                  </div>
+                  <div style={styles.priceTag}>
+                    {formatCurrency(ticket.price)}
+                  </div>
 
-          {/* Bill Summary - Sử dụng state đã cập nhật */}
-          <BillSummary
-            tickets={tickets}
-            selectedQuantities={selectedQuantities}
-            totalQuantity={totalQuantity}
-            totalPrice={totalPrice}
-            onHold={handleHoldAllTickets}
-          />
+                  <div style={extendedStyles.dateInfo}>
+                    <Clock size={14} />
+                    <span>
+                      {ticket.startDate
+                        ? new Date(ticket.startDate).toLocaleString("vi-VN", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            day: "2-digit",
+                            month: "2-digit",
+                            year: "numeric",
+                          })
+                        : "Sắp diễn ra"}
+                    </span>
+                  </div>
+
+                  {ticket.zoneName && (
+                    <div style={extendedStyles.zoneText}>
+                      <Zap
+                        size={14}
+                        fill={COLORS.accent}
+                        color={COLORS.accent}
+                      />
+                      {ticket.zoneName}
+                    </div>
+                  )}
+
+                  <div style={styles.ticketTotal}>
+                    {selectedQuantities[ticket._id] > 0
+                      ? `Tạm tính: ${formatCurrency(
+                          ticket.price * selectedQuantities[ticket._id]
+                        )}`
+                      : "Chưa chọn số lượng"}
+                  </div>
+                </div>
+
+                {/* Cột 2: Nội dung mô tả (Đã xử lý HTML và cuộn) */}
+                <div style={styles.cardCenter}>
+                  <div style={styles.infoTitle}>Chi tiết & Quy định:</div>
+
+                  <div style={extendedStyles.scrollDescription}>
+                    {/* Render HTML từ database để nhận thẻ <p>, <br> */}
+                    <div
+                      style={extendedStyles.innerHtmlContent}
+                      dangerouslySetInnerHTML={{ __html: ticket.description }}
+                    />
+                  </div>
+
+                  <div style={extendedStyles.stockSummary}>
+                    <span>
+                      Tồn kho: <strong>{ticket.availability}</strong>
+                    </span>
+                    <span>
+                      Đã giữ:{" "}
+                      <strong style={{ color: COLORS.held }}>
+                        {ticket.heldCount || 0}
+                      </strong>
+                    </span>
+                  </div>
+                </div>
+
+                {/* Cột 3: Thao tác đặt vé */}
+                <div style={styles.cardRight}>
+                  <div style={styles.statusBox}>
+                    <div
+                      style={{
+                        ...styles.statusText,
+                        color:
+                          ticket.availability > 0
+                            ? COLORS.primary
+                            : COLORS.error,
+                      }}
+                    >
+                      {ticket.availability > 0 ? "ĐANG MỞ BÁN" : "HẾT VÉ"}
+                    </div>
+                    <div
+                      style={{
+                        ...styles.availabilityNum,
+                        color:
+                          ticket.availability > 0
+                            ? COLORS.primary
+                            : COLORS.error,
+                      }}
+                    >
+                      {ticket.availability}
+                    </div>
+                  </div>
+
+                  <div style={styles.qtyPicker}>
+                    <button
+                      onClick={() =>
+                        updateQuantity(
+                          ticket._id,
+                          Math.max(0, (selectedQuantities[ticket._id] || 0) - 1)
+                        )
+                      }
+                      style={styles.qtyBtn}
+                    >
+                      <Minus size={16} />
+                    </button>
+                    <span style={styles.qtyText}>
+                      {selectedQuantities[ticket._id] || 0}
+                    </span>
+                    <button
+                      onClick={() =>
+                        updateQuantity(
+                          ticket._id,
+                          Math.min(
+                            ticket.availability,
+                            (selectedQuantities[ticket._id] || 0) + 1
+                          )
+                        )
+                      }
+                      style={styles.qtyBtn}
+                    >
+                      <Plus size={16} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div style={styles.sidebar}>
+            <BillSummary
+              tickets={tickets}
+              selectedQuantities={selectedQuantities}
+              totalQuantity={totalQuantity}
+              totalPrice={totalPrice}
+              onHold={handleHoldAllTickets}
+            />
+          </div>
         </div>
       </div>
     </div>
   );
+};
+const extendedStyles = {
+  ticketTypeBadge: {
+    display: "inline-block",
+    padding: "2px 8px",
+    backgroundColor: COLORS.secondary,
+    color: "#fff",
+    borderRadius: "4px",
+    fontSize: "11px",
+    fontWeight: "bold",
+    marginBottom: "8px",
+    textTransform: "uppercase",
+  },
+  dateInfo: {
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+    fontSize: "13px",
+    color: COLORS.textMuted,
+    marginTop: "4px",
+    marginBottom: "4px",
+  },
+  zoneText: {
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+    fontSize: "13px",
+    fontWeight: "600",
+    color: COLORS.accent,
+    marginBottom: "10px",
+  },
+  descriptionBox: {
+    marginTop: "12px",
+    padding: "8px",
+    backgroundColor: "#f8fafc",
+    borderRadius: "6px",
+    fontSize: "12px",
+    color: COLORS.textMuted,
+    borderLeft: `3px solid ${COLORS.border}`,
+    display: "flex",
+    gap: "6px",
+  },
+
+  scrollDescription: {
+    marginTop: "8px",
+    padding: "12px",
+    backgroundColor: "#f8fafc",
+    borderRadius: "8px",
+    fontSize: "13px",
+    color: "#475569",
+    border: `1px solid ${COLORS.border}`,
+    maxHeight: "150px",
+    overflowY: "auto",
+    lineHeight: "1.6",
+  },
+  innerHtmlContent: {
+    // Style cho các thẻ con bên trong HTML từ DB
+    textAlign: "justify",
+    wordBreak: "break-word",
+  },
+  stockSummary: {
+    display: "flex",
+    justifyContent: "space-between",
+    marginTop: "12px",
+    fontSize: "12px",
+    padding: "0 5px",
+  },
+};
+// --- STYLES (Inline CSS) ---
+const styles = {
+  page: {
+    backgroundColor: COLORS.background,
+    minHeight: "100vh",
+    padding: "40px 20px",
+    fontFamily: "sans-serif",
+  },
+  container: { maxWidth: "1200px", margin: "0 auto" },
+  header: { textAlign: "center", marginBottom: "40px" },
+  title: {
+    fontSize: "28px",
+    fontWeight: "bold",
+    color: COLORS.secondary,
+    marginBottom: "8px",
+  },
+  subtitle: { color: COLORS.textMuted, marginBottom: "20px" },
+  metaInfo: {
+    display: "flex",
+    justifyContent: "center",
+    gap: "20px",
+    fontSize: "12px",
+    color: COLORS.textMuted,
+    flexWrap: "wrap",
+  },
+  code: {
+    backgroundColor: "#fff",
+    padding: "2px 6px",
+    borderRadius: "4px",
+    border: `1px solid ${COLORS.border}`,
+  },
+  updateBadge: {
+    display: "flex",
+    alignItems: "center",
+    color: COLORS.accent,
+    fontWeight: "bold",
+  },
+  mainLayout: {
+    display: "grid",
+    gridTemplateColumns: "1fr 350px",
+    gap: "30px",
+  },
+  list: { display: "flex", flexDirection: "column", gap: "20px" },
+  card: {
+    backgroundColor: COLORS.surface,
+    borderRadius: "16px",
+    padding: "24px",
+    display: "grid",
+    gridTemplateColumns: "220px 1fr 180px",
+    gap: "20px",
+    alignItems: "start",
+    boxShadow: "0 10px 15px -3px rgba(0,0,0,0.05)",
+    border: `1px solid ${COLORS.border}`,
+    marginBottom: "15px",
+  },
+  cardLeft: { borderRight: `1px solid ${COLORS.border}`, paddingRight: "20px" },
+  priceTag: {
+    fontSize: "24px",
+    fontWeight: "900",
+    color: COLORS.error,
+    marginBottom: "8px",
+  },
+  ticketTotal: {
+    fontSize: "14px",
+    color: COLORS.primary,
+    fontWeight: "600",
+    marginTop: "5px",
+  },
+  cardCenter: { padding: "0 20px" },
+  infoTitle: {
+    fontWeight: "bold",
+    fontSize: "14px",
+    marginBottom: "10px",
+    color: COLORS.secondary,
+  },
+  infoRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    fontSize: "13px",
+    marginBottom: "4px",
+  },
+  cardRight: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "flex-end",
+    gap: "15px",
+  },
+  statusBox: { textAlign: "right" },
+  statusText: { fontSize: "12px", fontWeight: "bold", letterSpacing: "1px" },
+  availabilityNum: { fontSize: "32px", fontWeight: "900" },
+  qtyPicker: {
+    display: "flex",
+    alignItems: "center",
+    backgroundColor: "#f8fafc",
+    borderRadius: "8px",
+    border: `1px solid ${COLORS.border}`,
+    overflow: "hidden",
+  },
+  qtyBtn: {
+    border: "none",
+    background: "white",
+    padding: "8px 12px",
+    cursor: "pointer",
+  },
+  qtyText: { padding: "0 15px", fontWeight: "bold", fontSize: "16px" },
+  sidebar: { position: "sticky", top: "20px", height: "fit-content" },
+  center: {
+    display: "flex",
+    height: "100vh",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  toast: {
+    position: "fixed",
+    top: "20px",
+    right: "20px",
+    padding: "12px 24px",
+    color: "white",
+    borderRadius: "8px",
+    zIndex: 1000,
+    boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+    fontWeight: "bold",
+  },
 };
 
 export default TicketBookingPage;

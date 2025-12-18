@@ -6,6 +6,8 @@ export const WrapperContainerLeft = styled.div`
   flex-direction: column;
   align-item: center;
   gap: 15px;
+  background: #6c5ecc;
+  color: #fff;
 `;
 export const WrapperContainerRight = styled.div`
   width: 300px;

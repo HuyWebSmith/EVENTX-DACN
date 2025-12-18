@@ -15,19 +15,27 @@ cron.schedule("* * * * *", async () => {
 
       let newStatus = t.trangThai;
 
-      // 1️⃣ Vé hết hạn theo endDate
-      if (t.endDate && now > t.endDate) {
+      // 1️⃣ Vé chưa bắt đầu mở bán
+      if (t.ticketSaleStart && now < t.ticketSaleStart) {
+        newStatus = "SapMoBan"; // hoặc bạn tự định nghĩa
+      }
+      // 2️⃣ Vé hết hạn theo endDate
+      else if (t.endDate && now > t.endDate) {
         newStatus = "HetHan";
       }
-      // 2️⃣ Vé đã bán hết
+      // 3️⃣ Vé chưa mở bán nhưng đang trong thời gian bán
+      else if (t.ticketSaleEnd && now > t.ticketSaleEnd) {
+        newStatus = "HetHan"; // hết thời gian bán
+      }
+      // 4️⃣ Vé đã bán hết
       else if (remain <= 0) {
         newStatus = "HetVe";
       }
-      // 3️⃣ Vé sắp bán hết
+      // 5️⃣ Vé sắp bán hết
       else if (remain <= 5) {
         newStatus = "SapBan";
       }
-      // 4️⃣ Vé còn vé
+      // 6️⃣ Vé còn vé
       else {
         newStatus = "ConVe";
       }

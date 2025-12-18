@@ -1,7 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { Row, Col, Image, Modal } from "antd";
 import styled from "styled-components";
-import { PlusOutlined, HeartOutlined, HeartFilled } from "@ant-design/icons";
+import {
+  PlusOutlined,
+  HeartOutlined,
+  HeartFilled,
+  EnvironmentOutlined,
+} from "@ant-design/icons";
 import ButtonComponent from "../ButtonComponent/ButtonComponent";
 import dayjs from "dayjs";
 import { updateFavorites, userSlice } from "../../redux/slides/userSlide";
@@ -238,8 +243,8 @@ const ProductDetailComponent = ({ productDetails, onSelectTicketClick }) => {
   const toggleDescription = () => {
     setShowFullDescription(!showFullDescription);
   };
-  const openMapModal = (location) => {
-    setMapLocation(location);
+  const openMapModal = (location, fullAddress) => {
+    setMapLocation(`${location}, ${fullAddress}`);
     setMapModalVisible(true);
   };
 
@@ -455,18 +460,14 @@ const ProductDetailComponent = ({ productDetails, onSelectTicketClick }) => {
         </Row>
       </TicketWrapper>
 
-      {/* === 2. PHẦN MÔ TẢ/GIỚI THIỆU (CÓ XEM THÊM) === */}
-      {/* Chỉ render nếu có mô tả (bannerOverlayText) */}
       {description && (
         <DescriptionSection>
           <SectionTitle>Giới Thiệu Sự Kiện</SectionTitle>
 
-          {/* Nội dung mô tả (đã được rút gọn hoặc toàn bộ) */}
           <DescriptionText
             dangerouslySetInnerHTML={{ __html: displayedText }}
           />
 
-          {/* Nút Xem thêm/Thu gọn chỉ hiện khi nội dung dài */}
           {needsTruncation && (
             <ToggleButton onClick={toggleDescription}>
               {showFullDescription ? "Thu gọn ▲" : "Xem thêm ▼"}
@@ -474,24 +475,47 @@ const ProductDetailComponent = ({ productDetails, onSelectTicketClick }) => {
           )}
         </DescriptionSection>
       )}
+
       <Modal
-        visible={mapModalVisible}
-        title="Bản đồ địa điểm"
+        open={mapModalVisible} // Ant Design 5.x dùng 'open' thay cho 'visible'
+        title={
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <EnvironmentOutlined style={{ color: "#1890ff" }} />
+            <span>Vị trí sự kiện</span>
+          </div>
+        }
         onCancel={closeMapModal}
         footer={null}
-        width={600}
+        width={800}
+        centered
+        bodyStyle={{ padding: "0" }} // Xóa padding mặc định để bản đồ tràn viền đẹp hơn
+        className="luxury-map-modal"
       >
-        {mapLocation && (
-          <iframe
-            width="100%"
-            height="400"
-            style={{ border: 0 }}
-            loading="lazy"
-            allowFullScreen
-            src={`https://www.google.com/maps?q=${encodeURIComponent(
-              mapLocation
-            )}&output=embed`}
-          />
+        {mapLocation ? (
+          <div
+            style={{
+              width: "100%",
+              height: "500px",
+              overflow: "hidden",
+              borderRadius: "0 0 12px 12px",
+            }}
+          >
+            <iframe
+              width="100%"
+              height="100%"
+              style={{ border: 0 }}
+              loading="lazy"
+              allowFullScreen
+              referrerPolicy="no-referrer-when-downgrade"
+              src={`https://www.google.com/maps?q=${encodeURIComponent(
+                mapLocation
+              )}&output=embed`}
+            />
+          </div>
+        ) : (
+          <div style={{ padding: "40px", textAlign: "center", color: "#888" }}>
+            <p>Đang tải dữ liệu vị trí...</p>
+          </div>
         )}
       </Modal>
     </>

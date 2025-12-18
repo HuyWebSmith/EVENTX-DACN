@@ -1,263 +1,354 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
+
 import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
-import { axiosJWT, updateUser } from "../../services/UserService";
-import { notification } from "antd";
+import { notification, Tag, Divider, Input, Modal } from "antd";
 import { updateWalletBalance } from "../../redux/slides/userSlide";
+import {
+  User,
+  Mail,
+  Phone,
+  MapPin,
+  CreditCard,
+  Wallet as WalletIcon,
+  Ticket,
+  Receipt,
+  CheckCircle2,
+  Lock,
+} from "lucide-react";
+
 const CheckoutPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const holdId = location.state?.holdId;
   const checkoutData = location.state?.checkoutData;
   const dispatch = useDispatch();
+  const [api, contextHolder] = notification.useNotification();
   const orderState = useSelector((state) => state.order);
+  const currentUser = useSelector((state) => state.user);
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isVerifying, setIsVerifying] = useState(false);
   const { selectedQuantities, totalQuantity, totalPrice, tickets } = orderState;
 
   const [form, setForm] = useState({
-    fullName: "",
-    email: "",
-    phoneNumber: "",
-    address: "",
-    paymentMethod: "COD",
+    fullName: currentUser?.name || "",
+    email: currentUser?.email || "",
+    phoneNumber: currentUser?.phone || "",
+    address: currentUser?.address || "",
+    paymentMethod: "Wallet",
   });
-  const [error, setError] = useState(null);
-  const currentUser = useSelector((state) => state.user);
+
   const walletBalance = currentUser?.walletBalance || 0;
 
+  // Logic lấy dữ liệu an toàn (Fallback)
+  const saved = JSON.parse(localStorage.getItem("ticketBill")) || {};
+  const finalTickets = checkoutData?.items || tickets || saved.tickets || [];
+  const finalSelectedQuantities =
+    checkoutData?.selectedQuantities ||
+    selectedQuantities ||
+    saved.selectedQuantities ||
+    {};
+  const finalTotalQuantity =
+    checkoutData?.totalQuantity || totalQuantity || saved.totalQuantity || 0;
+  const finalTotalPrice =
+    checkoutData?.totalPrice || totalPrice || saved.totalPrice || 0;
+  const handleOpenWalletModal = () => {
+    if (walletBalance < finalTotalPrice) {
+      notification.error({ message: "Số dư không đủ" });
+      return;
+    }
+    setIsPasswordModalOpen(true);
+  };
   const customerInfo = {
-    userId: currentUser.id || "guest",
+    userId: currentUser?._id || "guest",
     fullName: form.fullName,
     email: form.email,
     phoneNumber: form.phoneNumber,
     address: form.address,
   };
+  const getOrderPayload = (method, pass = "") => ({
+    holdId: holdId,
+    paymentMethod: method,
+    password: pass,
+    customerInfo: {
+      userId: currentUser?.id || "guest",
+      fullName: form.fullName,
+      email: form.email,
+      phoneNumber: form.phoneNumber,
+      address: form.address,
+    },
+    selectedQuantities: finalSelectedQuantities,
+    totalPrice: finalTotalPrice,
+  });
+  const processOrder = async (payload) => {
+    try {
+      setIsVerifying(true);
+      const res = await axios.post(
+        "http://localhost:3001/api/orders/create",
+        payload
+      );
 
-  // Xử lý dữ liệu từ location, redux, hoặc localStorage
-  const saved = JSON.parse(localStorage.getItem("ticketBill")) || {};
+      if (res.data.status === "OK") {
+        if (payload.paymentMethod === "Wallet") {
+          // Tính số dư mới: Số dư hiện tại - Tổng tiền vừa thanh toán
+          const newBalance = walletBalance - finalTotalPrice;
 
-  const finalTickets =
-    checkoutData?.tickets?.length > 0
-      ? checkoutData.tickets
-      : tickets?.length > 0
-      ? tickets
-      : saved.tickets || [];
-
-  const finalSelectedQuantities =
-    checkoutData?.selectedQuantities &&
-    Object.keys(checkoutData.selectedQuantities).length > 0
-      ? checkoutData.selectedQuantities
-      : selectedQuantities && Object.keys(selectedQuantities).length > 0
-      ? selectedQuantities
-      : saved.selectedQuantities || {};
-
-  const finalTotalQuantity =
-    checkoutData?.totalQuantity > 0
-      ? checkoutData.totalQuantity
-      : totalQuantity > 0
-      ? totalQuantity
-      : saved.totalQuantity || 0;
-
-  const finalTotalPrice =
-    checkoutData?.totalPrice > 0
-      ? checkoutData.totalPrice
-      : totalPrice > 0
-      ? totalPrice
-      : saved.totalPrice || 0;
-
+          dispatch(updateWalletBalance(newBalance));
+        }
+        notification.success({
+          message: "Giao dịch thành công!",
+          description: "Tiền đã được trừ vào ví của bạn.",
+        });
+        setIsPasswordModalOpen(false);
+        // Chuyển hướng sang trang thành công
+        setTimeout(() => {
+          navigate(`/order-success/${res.data.orderId}`);
+        }, 1500);
+      }
+    } catch (err) {
+      const errorMsg =
+        err.response?.data?.message || "Lỗi hệ thống khi tạo đơn";
+      api.error({
+        message: "Thanh toán thất bại",
+        description: errorMsg,
+      });
+      setConfirmPassword("");
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+  const handleConfirmPasswordPayment = () => {
+    const payload = getOrderPayload("Wallet", confirmPassword);
+    processOrder(payload);
+  };
+  const handlePayPalApprove = (data) => {
+    const payload = getOrderPayload("PayPal");
+    // Có thể đính kèm thêm paypalOrderId vào payload nếu backend cần lưu đối soát
+    payload.paypalOrderId = data.orderID;
+    processOrder(payload);
+  };
   const formatCurrency = (amount) =>
     new Intl.NumberFormat("vi-VN", {
       style: "currency",
       currency: "VND",
     }).format(amount);
 
-  const selectedTicketsList = finalTickets.filter(
-    (t) => (finalSelectedQuantities?.[t._id] || 0) > 0
-  );
-
   const handleChange = (e) =>
     setForm({ ...form, [e.target.name]: e.target.value });
 
-  const handleApprove = async (orderID) => {
+  const handleApprove = async (paypalOrderID) => {
     try {
-      const res = await axios.post(
-        "http://localhost:3001/api/orders/create-paypal",
+      const response = await axios.post(
+        "http://localhost:3001/api/orders/create",
         {
-          holdId,
-          selectedQuantities: finalSelectedQuantities,
-          totalPrice: finalTotalPrice,
-          totalQuantity: finalTotalQuantity,
-          customerInfo,
-          paypalOrderId: orderID,
-          orderStatus: "Completed",
+          holdId: holdId,
+          paypalOrderId: paypalOrderID,
+          fullName: form.fullName,
+          email: form.email,
+          phoneNumber: form.phoneNumber,
+          address: form.address,
+          paymentMethod: "PayPal",
         }
       );
 
-      // Hiện notification
-      notification.success({
-        message: "Thanh toán thành công",
-        description: "Giao dịch đã được thực hiện.",
-        placement: "topRight",
-        duration: 3,
-      });
-
-      // Xóa localStorage trước
-      localStorage.removeItem("ticketBill");
-
-      // Delay 0.5s để notification hiện trước khi navigate
-      setTimeout(() => {
-        navigate(`/order-success/${res.data.orderId}`);
-      }, 500);
-    } catch (err) {
-      console.error("Payment error:", err.response?.data || err.message);
-      notification.error({
-        message: "Thanh toán thất bại",
-        description: "Thử lại sau.",
-        placement: "topRight",
-        duration: 3,
-      });
-    }
-  };
-
-  const handleWalletPayment = async () => {
-    if (walletBalance < finalTotalPrice) {
-      notification.error({
-        message: "Thanh toán thất bại",
-        description: "Số dư không đủ để thanh toán.",
-        placement: "topRight",
-        duration: 3,
-      });
-      return;
-    }
-
-    try {
-      const res = await axios.post(
-        "http://localhost:3001/api/orders/pay-wallet",
-        {
-          holdId,
-          selectedQuantities: finalSelectedQuantities,
-          totalPrice: finalTotalPrice,
-          totalQuantity: finalTotalQuantity,
-          customerInfo,
-          orderStatus: "Completed",
-          userId: currentUser.id,
-        }
-      );
-
-      if (res.data.success || res.data.status === "success") {
-        // **Cập nhật ngay số dư trong Redux**
-        dispatch(updateWalletBalance(res.data.balance));
-
-        // Xóa localStorage trước khi navigate
-        localStorage.removeItem("ticketBill");
-
-        // Hiện notification thành công
-        notification.success({
-          message: "Thanh toán thành công",
-          description: "Ví của bạn đã bị trừ số tiền tương ứng.",
-          placement: "topRight",
-          duration: 3,
-        });
-
-        // Delay nhỏ để notification kịp hiện trước khi chuyển trang
-        setTimeout(() => {
-          navigate(`/order-success/${res.data.orderId}`);
-        }, 500);
-      } else {
-        notification.error({
-          message: "Thanh toán thất bại",
-          description: res.data.message || "Có lỗi xảy ra, thử lại.",
-          placement: "topRight",
-          duration: 3,
-        });
+      if (response.data.status === "OK") {
+        navigate(`/order-success/${response.data.orderId}`);
       }
     } catch (err) {
-      console.error("Wallet payment error:", err.response?.data || err.message);
-      notification.error({
-        message: "Thanh toán thất bại",
-        description: err.response?.data?.message || "Có lỗi xảy ra, thử lại.",
-        placement: "topRight",
-        duration: 3,
+      console.error("Lỗi PayPal:", err);
+      notification.error({ message: "Lỗi lưu đơn hàng PayPal" });
+    }
+  };
+  const handleWalletPayment = async () => {
+    try {
+      const walletRes = await axios.post("/api/users/pay-wallet", {
+        amount: totalPrice,
+        password: confirmPassword,
       });
+
+      if (walletRes.data.success) {
+        const response = await axios.post("/api/orders/create", {
+          holdId: holdId,
+          fullName: customerInfo.fullName,
+          email: customerInfo.email,
+          phoneNumber: customerInfo.phoneNumber,
+          address: customerInfo.address,
+          paymentMethod: "Wallet",
+        });
+
+        // Bước 3: Chuyển hướng sang trang thành công với orderId vừa nhận được
+        if (response.data.status === "OK") {
+          navigate(`/order-success/${response.data.orderId}`);
+        }
+      }
+    } catch (err) {
+      alert("Thanh toán ví thất bại: " + err.response?.data?.message);
     }
   };
 
   return (
-    <div
-      style={{
-        maxWidth: 1000,
-        margin: "3rem auto",
-        padding: "2rem",
-        borderRadius: "1rem",
-        backgroundColor: "#fff",
-      }}
-    >
-      <h2 style={{ textAlign: "center", marginBottom: "2rem" }}>
-        Xác nhận Thanh toán
-      </h2>
-      <div style={{ display: "flex", gap: "2rem" }}>
-        {/* Form nhập thông tin */}
-        <div
-          style={{
-            flex: 1,
-            display: "flex",
-            flexDirection: "column",
-            gap: "1rem",
-          }}
-        >
-          {["fullName", "email", "phoneNumber", "address"].map((field) => (
-            <input
-              key={field}
-              name={field}
-              placeholder={
-                field === "fullName"
-                  ? "Họ tên"
-                  : field === "email"
-                  ? "Email"
-                  : field === "phoneNumber"
-                  ? "Số điện thoại"
-                  : "Địa chỉ"
-              }
-              value={form[field]}
-              onChange={handleChange}
-              style={{
-                padding: "0.75rem",
-                borderRadius: "0.5rem",
-                border: "1px solid #d1d5db",
-              }}
-            />
-          ))}
+    <div style={styles.container}>
+      {contextHolder}
+      <div style={styles.headerSection}>
+        <h2 style={styles.mainTitle}>Xác nhận & Thanh toán</h2>
+        <p style={styles.subTitle}>
+          Vui lòng kiểm tra lại thông tin và chọn phương thức thanh toán
+        </p>
+      </div>
+      <Modal
+        title={
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <Lock size={20} color="#10b981" />
+            <span>Xác nhận mật khẩu thanh toán</span>
+          </div>
+        }
+        open={isPasswordModalOpen}
+        onOk={handleConfirmPasswordPayment}
+        onCancel={() => setIsPasswordModalOpen(false)}
+        confirmLoading={isVerifying}
+        okText="Xác nhận thanh toán"
+        cancelText="Hủy"
+        okButtonProps={{ style: { backgroundColor: "#10b981" } }}
+      >
+        <div style={{ padding: "10px 0" }}>
+          <p>
+            Để bảo mật, vui lòng nhập mật khẩu tài khoản của bạn để hoàn tất
+            giao dịch
+            <strong> {formatCurrency(finalTotalPrice)}</strong>
+          </p>
+          <Input.Password
+            placeholder="Nhập mật khẩu của bạn"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            onPressEnter={handleConfirmPasswordPayment}
+            autoFocus
+          />
+        </div>
+      </Modal>
+      <div style={styles.mainGrid}>
+        {/* CỘT TRÁI: THÔNG TIN KHÁCH HÀNG */}
+        <div style={styles.leftColumn}>
+          <section style={styles.section}>
+            <h3 style={styles.sectionTitle}>
+              <User size={18} /> Thông tin người mua
+            </h3>
+            <div style={styles.inputGroup}>
+              <div style={styles.inputWrapper}>
+                <User style={styles.inputIcon} size={16} />
+                <input
+                  name="fullName"
+                  placeholder="Họ và tên"
+                  value={form.fullName}
+                  onChange={handleChange}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.inputWrapper}>
+                <Mail style={styles.inputIcon} size={16} />
+                <input
+                  name="email"
+                  placeholder="Email"
+                  value={form.email}
+                  onChange={handleChange}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.inputWrapper}>
+                <Phone style={styles.inputIcon} size={16} />
+                <input
+                  name="phoneNumber"
+                  placeholder="Số điện thoại"
+                  value={form.phoneNumber}
+                  onChange={handleChange}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.inputWrapper}>
+                <MapPin style={styles.inputIcon} size={16} />
+                <input
+                  name="address"
+                  placeholder="Địa chỉ giao vé (nếu có)"
+                  value={form.address}
+                  onChange={handleChange}
+                  style={styles.input}
+                />
+              </div>
+            </div>
+          </section>
 
-          <div style={{ marginTop: "1rem" }}>
-            <label style={{ fontWeight: "bold" }}>
-              Phương thức thanh toán:
-            </label>
-            <div style={{ display: "flex", gap: "10px", marginTop: "8px" }}>
-              {["COD", "VnPay", "PayPal", "Wallet"].map((method) => (
-                <button
-                  key={method}
-                  type="button"
-                  onClick={() => setForm({ ...form, paymentMethod: method })}
+          <section style={styles.section}>
+            <h3 style={styles.sectionTitle}>
+              <CreditCard size={18} /> Phương thức thanh toán
+            </h3>
+            <div style={styles.paymentGrid}>
+              {[
+                {
+                  id: "Wallet",
+                  label: "Ví EventX",
+                  icon: <WalletIcon size={20} />,
+                },
+                {
+                  id: "PayPal",
+                  label: "PayPal",
+                  icon: <CreditCard size={20} />,
+                },
+                { id: "VnPay", label: "VnPay", icon: <Receipt size={20} /> },
+              ].map((m) => (
+                <div
+                  key={m.id}
+                  onClick={() => setForm({ ...form, paymentMethod: m.id })}
                   style={{
-                    padding: "8px 14px",
-                    borderRadius: "6px",
-                    border:
-                      form.paymentMethod === method
-                        ? "2px solid #2dc275"
-                        : "1px solid #ccc",
-                    background:
-                      form.paymentMethod === method ? "#e7f9ef" : "#fff",
-                    cursor: "pointer",
+                    ...styles.paymentCard,
+                    borderColor:
+                      form.paymentMethod === m.id ? "#10b981" : "#e5e7eb",
+                    backgroundColor:
+                      form.paymentMethod === m.id ? "#f0fdf4" : "#fff",
                   }}
                 >
-                  {method}
-                </button>
+                  {m.icon}
+                  <span style={{ fontWeight: "600" }}>{m.label}</span>
+                  {form.paymentMethod === m.id && (
+                    <CheckCircle2
+                      size={16}
+                      style={{ color: "#10b981", marginLeft: "auto" }}
+                    />
+                  )}
+                </div>
               ))}
             </div>
 
-            {form.paymentMethod === "PayPal" && (
-              <div style={{ marginTop: "10px" }}>
+            {/* Chi tiết cho từng loại thanh toán */}
+            <div style={styles.paymentDetail}>
+              {form.paymentMethod === "Wallet" && (
+                <div style={styles.walletBox}>
+                  <div
+                    style={{ display: "flex", justifyContent: "space-between" }}
+                  >
+                    <span>Số dư ví:</span>
+                    <strong style={{ color: "#059669" }}>
+                      {formatCurrency(walletBalance)}
+                    </strong>
+                  </div>
+                  <Divider style={{ margin: "10px 0" }} />
+                  {walletBalance < finalTotalPrice ? (
+                    <Tag color="error">
+                      Số dư không đủ. Vui lòng nạp thêm tiền.
+                    </Tag>
+                  ) : (
+                    <button
+                      onClick={() => setIsPasswordModalOpen(true)}
+                      style={styles.btnPrimary}
+                    >
+                      Xác nhận thanh toán từ Ví
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {form.paymentMethod === "PayPal" && (
                 <PayPalScriptProvider
                   options={{
                     "client-id":
@@ -277,140 +368,228 @@ const CheckoutPage = () => {
                         ],
                       })
                     }
-                    onApprove={async (data, actions) => {
-                      await actions.order.capture();
-                      handleApprove(data.orderID);
-                    }}
+                    onApprove={(data) => handlePayPalApprove(data)}
                   />
                 </PayPalScriptProvider>
-              </div>
-            )}
-            {form.paymentMethod === "Wallet" && (
-              <div
-                style={{
-                  marginTop: "10px",
-                  padding: "1rem",
-                  borderRadius: "0.75rem",
-                  backgroundColor: "#f1f5f9",
-                }}
-              >
-                <p style={{ marginBottom: "8px" }}>
-                  Số dư hiện tại:{" "}
-                  <strong style={{ color: "#16a34a" }}>
-                    {formatCurrency(walletBalance)}
-                  </strong>
-                </p>
-
-                {walletBalance < finalTotalPrice ? (
-                  <p style={{ color: "#dc2626", fontWeight: "600" }}>
-                    ❌ Số dư không đủ để thanh toán.
-                  </p>
-                ) : (
-                  <button
-                    onClick={handleWalletPayment}
-                    style={{
-                      padding: "10px 16px",
-                      backgroundColor: "#22c55e",
-                      color: "#fff",
-                      border: "none",
-                      borderRadius: "6px",
-                      cursor: "pointer",
-                      fontWeight: 600,
-                      width: "100%",
-                    }}
-                  >
-                    Thanh toán bằng Ví
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-
-          {error && (
-            <p
-              style={{
-                color: "#ef4444",
-                backgroundColor: "#fee2e2",
-                padding: "0.75rem",
-                borderRadius: "0.5rem",
-                marginTop: "1rem",
-              }}
-            >
-              {error}
-            </p>
-          )}
+              )}
+            </div>
+          </section>
         </div>
 
-        {/* BILL */}
-        <div
-          style={{
-            flex: 1,
-            backgroundColor: "#f9fafb",
-            padding: "1.5rem",
-            borderRadius: "1rem",
-            display: "flex",
-            flexDirection: "column",
-            gap: "0.75rem",
-            maxHeight: 400,
-            overflowY: "auto",
-          }}
-        >
-          <h3
-            style={{
-              fontSize: "1.25rem",
-              fontWeight: "700",
-              marginBottom: "0.5rem",
-              borderBottom: "2px solid #e5e7eb",
-              paddingBottom: "0.5rem",
-            }}
-          >
-            Chi tiết Đơn hàng
-          </h3>
-          {selectedTicketsList.length > 0 ? (
-            selectedTicketsList.map((ticket) => {
-              const qty = finalSelectedQuantities?.[ticket._id] ?? 0;
-              if (!qty) return null;
-              return (
-                <div
-                  key={ticket._id}
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    padding: "0.25rem 0",
-                  }}
-                >
-                  <span>
-                    {ticket.name} x {qty}
-                  </span>
-                  <span style={{ fontWeight: "600" }}>
-                    {formatCurrency(ticket.price * qty)}
-                  </span>
-                </div>
-              );
-            })
-          ) : (
-            <p style={{ fontSize: "0.875rem", color: "#ef4444" }}>
-              ❌ Không có vé nào được chọn.
-            </p>
-          )}
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              fontWeight: "800",
-              fontSize: "1.1rem",
-              marginTop: "1rem",
-              paddingTop: "1rem",
-              borderTop: "2px solid #e5e7eb",
-            }}
-          >
-            <span>Tổng cộng ({finalTotalQuantity} vé):</span>
-            <span>{formatCurrency(finalTotalPrice)}</span>
+        {/* CỘT PHẢI: CHI TIẾT VÉ (Bản nâng cấp) */}
+        <div style={styles.rightColumn}>
+          <div style={styles.ticketCard}>
+            <div style={styles.ticketHeader}>
+              <Ticket size={20} />
+              <h3 style={{ margin: 0 }}>Chi tiết vé đã chọn</h3>
+            </div>
+
+            <div style={styles.ticketList}>
+              {finalTickets.map((ticket, index) => {
+                // ticket có thể là object từ server hoặc từ redux
+                const qty =
+                  finalSelectedQuantities[ticket._id || ticket.id] ||
+                  ticket.quantity;
+                if (!qty) return null;
+
+                return (
+                  <div key={ticket._id || index} style={styles.ticketItem}>
+                    <div style={styles.ticketMainInfo}>
+                      <span style={styles.ticketName}>
+                        {ticket.name || ticket.type}
+                      </span>
+                      <span style={styles.ticketPrice}>
+                        {formatCurrency(ticket.price)}
+                      </span>
+                    </div>
+                    <div style={styles.ticketSubInfo}>
+                      <span>Số lượng: {qty}</span>
+                      <span style={styles.ticketSubtotal}>
+                        {formatCurrency(ticket.price * qty)}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div style={styles.billFooter}>
+              <div style={styles.footerRow}>
+                <span>Tổng số vé:</span>
+                <span>{finalTotalQuantity} vé</span>
+              </div>
+              <div
+                style={{
+                  ...styles.footerRow,
+                  fontSize: "1.25rem",
+                  color: "#ef4444",
+                  fontWeight: "800",
+                }}
+              >
+                <span>TỔNG CỘNG:</span>
+                <span>{formatCurrency(finalTotalPrice)}</span>
+              </div>
+            </div>
+
+            <div style={styles.guarantee}>
+              <CheckCircle2 size={14} color="#10b981" />
+              <span>Đảm bảo giữ chỗ trong thời gian thanh toán</span>
+            </div>
           </div>
         </div>
       </div>
     </div>
   );
+};
+
+// --- STYLES ---
+const styles = {
+  container: {
+    maxWidth: "1100px",
+    margin: "2rem auto",
+    padding: "0 1rem",
+    fontFamily: "'Inter', sans-serif",
+  },
+  headerSection: { textAlign: "center", marginBottom: "2.5rem" },
+  mainTitle: {
+    fontSize: "2rem",
+    fontWeight: "800",
+    color: "#1e293b",
+    margin: 0,
+  },
+  subTitle: { color: "#64748b", marginTop: "0.5rem" },
+  mainGrid: {
+    display: "grid",
+    gridTemplateColumns: "1fr 380px",
+    gap: "2rem",
+    alignItems: "start",
+  },
+
+  section: {
+    backgroundColor: "#fff",
+    padding: "1.5rem",
+    borderRadius: "1rem",
+    boxShadow: "0 4px 6px -1px rgba(0,0,0,0.05)",
+    marginBottom: "1.5rem",
+    border: "1px solid #f1f5f9",
+  },
+  sectionTitle: {
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    fontSize: "1.1rem",
+    fontWeight: "700",
+    color: "#334155",
+    marginBottom: "1.25rem",
+    borderBottom: "1px solid #f1f5f9",
+    paddingBottom: "0.75rem",
+  },
+
+  inputGroup: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" },
+  inputWrapper: { position: "relative", display: "flex", alignItems: "center" },
+  inputIcon: { position: "absolute", left: "12px", color: "#94a3b8" },
+  input: {
+    width: "100%",
+    padding: "0.75rem 0.75rem 0.75rem 2.5rem",
+    borderRadius: "0.5rem",
+    border: "1px solid #e2e8f0",
+    outline: "none",
+    fontSize: "0.95rem",
+    transition: "all 0.2s",
+  },
+
+  paymentGrid: {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr 1fr",
+    gap: "10px",
+  },
+  paymentCard: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: "8px",
+    padding: "1rem",
+    border: "2px solid",
+    borderRadius: "0.75rem",
+    cursor: "pointer",
+    transition: "0.2s",
+  },
+  paymentDetail: { marginTop: "1.5rem" },
+
+  walletBox: {
+    padding: "1rem",
+    backgroundColor: "#f8fafc",
+    borderRadius: "0.75rem",
+    border: "1px solid #e2e8f0",
+  },
+  btnPrimary: {
+    width: "100%",
+    padding: "0.85rem",
+    backgroundColor: "#10b981",
+    color: "#fff",
+    border: "none",
+    borderRadius: "0.5rem",
+    fontWeight: "700",
+    cursor: "pointer",
+    marginTop: "10px",
+  },
+
+  /* TICKET BILL STYLES */
+  ticketCard: {
+    backgroundColor: "#fff",
+    borderRadius: "1.25rem",
+    border: "1px solid #e2e8f0",
+    overflow: "hidden",
+    position: "relative",
+    boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1)",
+  },
+  ticketHeader: {
+    backgroundColor: "#1e293b",
+    color: "#fff",
+    padding: "1.25rem",
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+  },
+  ticketList: { padding: "1.5rem", backgroundColor: "#fff" },
+  ticketItem: {
+    paddingBottom: "1rem",
+    marginBottom: "1rem",
+    borderBottom: "1px dashed #e2e8f0",
+  },
+  ticketMainInfo: {
+    display: "flex",
+    justifyContent: "space-between",
+    fontWeight: "700",
+    color: "#1e293b",
+    marginBottom: "4px",
+  },
+  ticketSubInfo: {
+    display: "flex",
+    justifyContent: "space-between",
+    fontSize: "0.85rem",
+    color: "#64748b",
+  },
+  ticketPrice: { color: "#059669" },
+  billFooter: { padding: "0 1.5rem 1.5rem" },
+  footerRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    marginBottom: "0.5rem",
+    fontWeight: "600",
+    color: "#334155",
+  },
+  guarantee: {
+    backgroundColor: "#f0fdf4",
+    padding: "0.75rem",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "8px",
+    fontSize: "0.8rem",
+    color: "#16a34a",
+    fontWeight: "600",
+  },
 };
 
 export default CheckoutPage;

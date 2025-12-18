@@ -1,0 +1,61 @@
+.event-filter-container {
+  background-color: #121212; /* Nền tối sâu */
+  min-height: 100vh;
+  padding: 40px 0;
+  color: #fff;
+}
+
+.filter-sidebar {
+  background: rgba(255, 255, 255, 0.03); /* Hiệu ứng kính cực mỏng */
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 24px;
+  border-radius: 20px;
+  height: fit-content;
+  position: sticky;
+  top: 100px;
+}
+
+.category-item {
+  padding: 12px 16px;
+  margin-bottom: 8px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  font-weight: 500;
+  color: #a0a0a0;
+}
+
+.category-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+  transform: translateX(5px);
+}
+
+.category-item.active {
+  background: linear-gradient(
+    90deg,
+    rgba(55, 183, 90, 0.2) 0%,
+    rgba(55, 183, 90, 0) 100%
+  );
+  color: #37b75a;
+  border-left: 3px solid #37b75a;
+  font-weight: 600;
+}
+
+.event-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 30px;
+}
+
+.section-title {
+  font-size: 28px;
+  font-weight: 700;
+  margin-bottom: 30px;
+  background: linear-gradient(to right, #fff, #888);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}

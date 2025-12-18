@@ -1,4 +1,3 @@
-// models/HeldTicket.js (Sử dụng lại chính xác như bạn đã định nghĩa)
 const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
 
@@ -6,7 +5,6 @@ const Schema = mongoose.Schema;
 const EXPIRE_SECONDS = 15 * 60;
 
 const heldTicketSchema = new Schema({
-  // Nếu bạn đang đặt ghế cụ thể, nên thay thế bằng seatId và thêm holdSessionId
   ticketId: {
     type: Schema.Types.ObjectId,
     ref: "Ticket",
@@ -14,7 +12,7 @@ const heldTicketSchema = new Schema({
   },
   showtimeId: {
     type: Schema.Types.ObjectId,
-    ref: "Showtime", // Giả định bạn có model Showtime
+    ref: "Showtime",
     required: true,
   },
   userId: {
@@ -22,7 +20,6 @@ const heldTicketSchema = new Schema({
     required: true,
   },
   quantity: {
-    // Số lượng vé giữ (Nếu ticketId là loại vé)
     type: Number,
     required: true,
     min: 1,

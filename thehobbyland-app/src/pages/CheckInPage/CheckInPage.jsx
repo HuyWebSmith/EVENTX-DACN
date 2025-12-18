@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Html5Qrcode } from "html5-qrcode";
 import { Card, message, Tag, Modal } from "antd";
 import beepSound from "../../../src/assets/mp3/beep.mp3";
-
+import dayjs from "dayjs";
 const CheckInPage = () => {
   const [result, setResult] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -28,27 +28,32 @@ const CheckInPage = () => {
   }, []);
 
   const handleScan = async (qrCode) => {
-    if (isProcessing.current) return; // nếu đang xử lý → ignore
+    if (isProcessing.current) return;
     isProcessing.current = true;
 
-    // phát âm thanh quét
     new Audio(beepSound).play();
 
     try {
-      const res = await fetch("/api/orders/scan", {
+      const response = await fetch("/api/checkin-order/scan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ticketCode: qrCode }),
       });
 
-      const data = await res.json();
-      setResult(data);
+      const resultFromServer = await response.json();
+
+      // Lưu resultFromServer.data thay vì resultFromServer
+      setResult(resultFromServer);
       setModalOpen(true);
 
-      if (data.success) message.success("✔ Check-in thành công");
-      else message.error(data.message || "Check-in thất bại");
+      if (resultFromServer.success) {
+        message.success("✔ Check-in thành công");
+      } else {
+        message.error(resultFromServer.message || "Thất bại");
+      }
     } catch (e) {
-      message.error("Lỗi server");
+      message.error("Lỗi server hoặc kết nối");
+      isProcessing.current = false;
     }
   };
 
@@ -68,61 +73,86 @@ const CheckInPage = () => {
         open={modalOpen}
         onCancel={() => {
           setModalOpen(false);
-          isProcessing.current = false; // reset cờ để scan tiếp
+          isProcessing.current = false;
         }}
-        footer={false}
+        footer={null}
+        width={500}
       >
-        <Tag
-          color={result?.success ? "green" : "red"}
-          style={{ fontSize: 15, marginBottom: 10 }}
-        >
-          {result?.message}
-        </Tag>
+        {result?.data ? (
+          <div style={{ padding: "10px 0" }}>
+            <Tag
+              color="green"
+              style={{
+                fontSize: 14,
+                marginBottom: 15,
+                width: "100%",
+                textAlign: "center",
+                padding: 5,
+              }}
+            >
+              {result.message}
+            </Tag>
 
-        {result?.ticket ? (
-          <>
-            <h3>📌 Thông tin vé</h3>
+            <h3 style={{ borderBottom: "1px solid #eee", paddingBottom: 5 }}>
+              📌 Chi tiết vé
+            </h3>
             <p>
-              <b>Mã vé:</b> {result.ticket.ticketCode}
+              <b>Mã vé:</b> <Tag color="blue">{result.data.ticketCode}</Tag>
+            </p>
+
+            {/* Thông tin từ ticketId lồng bên trong */}
+            <p>
+              <b>Loại vé:</b> {result.data.orderDetailId?.ticketId?.type}
             </p>
             <p>
-              <b>Người mua:</b> {result.ticket.buyerName}
+              <b>Giá vé:</b>{" "}
+              {result.data.orderDetailId?.ticketId?.price?.toLocaleString()} VND
             </p>
+
+            <h3
+              style={{
+                borderBottom: "1px solid #eee",
+                paddingBottom: 5,
+                marginTop: 20,
+              }}
+            >
+              👤 Trạng thái
+            </h3>
             <p>
-              <b>Email:</b> {result.ticket.buyerEmail}
-            </p>
-            <p>
-              <b>Trạng thái:</b>
-              {result.ticket.isCheckedIn ? (
-                <Tag color="blue">ĐÃ CHECK-IN</Tag>
+              <b>Check-in:</b>
+              {result.data.status === "CheckedIn" ? (
+                <Tag color="cyan">ĐÃ XÁC NHẬN</Tag>
               ) : (
-                <Tag color="orange">CHƯA CHECK-IN</Tag>
+                <Tag color="orange">CHƯA XÁC NHẬN</Tag>
               )}
             </p>
+            <p>
+              <b>Thời gian quét:</b>{" "}
+              {dayjs(result.data.checkinTime).format("HH:mm:ss DD/MM/YYYY")}
+            </p>
 
-            {result.ticket.checkedInAt && (
-              <p>
-                <b>Thời gian check-in:</b> {result.ticket.checkedInAt}
-              </p>
-            )}
-
-            {result.ticket.event && (
-              <>
-                <h3 style={{ marginTop: 15 }}>🎉 Sự kiện</h3>
-                <p>
-                  <b>Tên sự kiện:</b> {result.ticket.event.name}
-                </p>
-                <p>
-                  <b>Thời gian:</b> {result.ticket.event.startDate}
-                </p>
-                <p>
-                  <b>Địa điểm:</b> {result.ticket.event.location}
-                </p>
-              </>
-            )}
-          </>
+            <div
+              style={{
+                marginTop: 15,
+                padding: 10,
+                background: "#fffbe6",
+                border: "1px solid #ffe58f",
+                borderRadius: 8,
+              }}
+            >
+              <small>
+                <b>Lưu ý:</b>{" "}
+                {result.data.orderDetailId?.ticketId?.description
+                  ?.replace(/<[^>]*>?/gm, "")
+                  .slice(0, 100)}
+                ...
+              </small>
+            </div>
+          </div>
         ) : (
-          <p style={{ marginTop: 10 }}>Không có dữ liệu vé.</p>
+          <div style={{ textAlign: "center", padding: 20 }}>
+            <p>Không tìm thấy dữ liệu chi tiết cho mã vé này.</p>
+          </div>
         )}
       </Modal>
     </div>

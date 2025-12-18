@@ -30,7 +30,7 @@ const ticketSchema = new Schema({
   },
   startDate: { type: Date, required: true },
   endDate: { type: Date, required: true },
-  description: { type: String, maxLength: 500 },
+  description: { type: String, maxLength: 2000 },
   ticketCode: { type: String, maxLength: 100 },
   discount: { type: Number },
   currency: { type: String, default: "VND" },

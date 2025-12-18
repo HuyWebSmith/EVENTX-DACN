@@ -10,13 +10,14 @@ const SliderComponent = ({ arrImages, items, renderItem }) => {
     className: "center",
     centerMode: true,
     infinite: true,
-    centerPadding: "80px",
-    slidesToShow: 2,
-    slidesToScroll: 1,
-    speed: 500,
-    autoplay: true,
-    autoplaySpeed: 2500,
+    centerPadding: "400px",
+    slidesToShow: 1,
+    speed: 600,
     dots: true,
+    arrows: true,
+    autoplay: true,
+    autoplaySpeed: 4000,
+    pauseOnHover: false,
   };
 
   return (

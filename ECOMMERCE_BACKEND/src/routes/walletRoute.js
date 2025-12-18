@@ -20,9 +20,17 @@ router.post("/add", async (req, res) => {
 
 // Trừ tiền
 router.post("/deduct", async (req, res) => {
-  const { userId, amount } = req.body;
-  const result = await deductBalance(userId, amount);
-  return res.json(result);
+  try {
+    const { userId, amount } = req.body;
+    const result = await deductBalance(userId, amount);
+    if (!result.success)
+      return res.status(400).json({ message: result.message });
+
+    res.json(result);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Lỗi server internal" });
+  }
 });
 
 module.exports = router;

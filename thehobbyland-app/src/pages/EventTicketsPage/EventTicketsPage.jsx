@@ -9,11 +9,24 @@ import {
   Statistic,
   Button,
   Modal,
+  Typography,
+  Space,
 } from "antd";
 import { useParams } from "react-router-dom";
 import { axiosJWT } from "../../services/UserService";
 import dayjs from "dayjs";
 import * as faceapi from "face-api.js";
+import {
+  CheckCircleOutlined,
+  CloseCircleOutlined,
+  UserOutlined,
+  BarChartOutlined,
+  EnvironmentOutlined,
+  CalendarOutlined,
+  ScanOutlined,
+} from "@ant-design/icons";
+
+const { Title, Text } = Typography;
 
 const EventDashboardPage = () => {
   const { eventId } = useParams();
@@ -22,111 +35,13 @@ const EventDashboardPage = () => {
   const [eventInfo, setEventInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [faceMessage, setFaceMessage] = useState(null);
-  const [faceMessageType, setFaceMessageType] = useState("success"); // success | error
-
-  // ===== Face ID =====
+  const [faceMessageType, setFaceMessageType] = useState("warning");
   const [faceModalVisible, setFaceModalVisible] = useState(false);
-  const [currentTicket, setCurrentTicket] = useState(null);
+  const [isProcessing, setIsProcessing] = useState(false);
   const videoRef = useRef();
-  const approveRefund = async (ticket) => {
-    try {
-      const res = await axiosJWT.post(
-        "http://localhost:3000/api/orders/refunds/approve",
-        {
-          ticketCode: ticket.ticketCode,
-        }
-      );
+  const scanningInterval = useRef(null);
 
-      if (res.data.success) {
-        message.success("Đã duyệt hoàn vé");
-        fetchTickets();
-      } else {
-        message.error(res.data.message || "Duyệt hoàn vé thất bại");
-      }
-    } catch (err) {
-      console.error(err);
-      message.error("Lỗi khi duyệt hoàn vé");
-    }
-  };
-
-  const rejectRefund = async (ticket) => {
-    try {
-      const res = await axiosJWT.post(
-        "http://localhost:3000/api/orders/refunds/reject",
-        {
-          ticketCode: ticket.ticketCode,
-        }
-      );
-
-      if (res.data.success) {
-        message.success("Đã từ chối hoàn vé");
-        fetchTickets();
-      } else {
-        message.error(res.data.message || "Từ chối hoàn vé thất bại");
-      }
-    } catch (err) {
-      console.error(err);
-      message.error("Lỗi khi từ chối hoàn vé");
-    }
-  };
-
-  const openFaceModal = (ticket) => {
-    setCurrentTicket(ticket);
-    setFaceModalVisible(true);
-  };
-
-  const closeFaceModal = () => {
-    if (videoRef.current?.srcObject) {
-      videoRef.current.srcObject.getTracks().forEach((t) => t.stop());
-    }
-    setFaceModalVisible(false);
-  };
-
-  const handleFaceConfirm = async () => {
-    const videoEl = videoRef.current;
-    if (!videoEl) return;
-
-    const canvas = document.createElement("canvas");
-    canvas.width = videoEl.videoWidth;
-    canvas.height = videoEl.videoHeight;
-    const ctx = canvas.getContext("2d");
-    ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
-
-    const detections = await faceapi
-      .detectSingleFace(canvas, new faceapi.TinyFaceDetectorOptions())
-      .withFaceLandmarks(true)
-      .withFaceDescriptor();
-
-    if (!detections) {
-      message.error("Không phát hiện gương mặt!");
-      return;
-    }
-
-    const faceDescriptor = Array.from(detections.descriptor);
-
-    try {
-      const res = await axiosJWT.post(
-        "http://localhost:3000/api/orders/checkin-face",
-        {
-          ticketCode: currentTicket.ticketCode,
-          faceDescriptor,
-        }
-      );
-      console.log("API response:", res.data);
-
-      if (res.data.success) message.success(res.data.message);
-      else message.error(res.data.message);
-      setFaceMessage(res.data.message);
-      setFaceMessageType(res.data.success ? "success" : "error");
-      fetchTickets(); // reload danh sách vé
-    } catch (err) {
-      console.error(err);
-      message.error("Check-in thất bại!");
-    }
-  };
-
-  // ===================
-
+  // 1. Tải danh sách vé và thông tin sự kiện
   const fetchTickets = async () => {
     try {
       setLoading(true);
@@ -141,289 +56,222 @@ const EventDashboardPage = () => {
         setEventInfo({
           title: ev?.title || "Không xác định",
           date: ev?.eventDate ? dayjs(ev.eventDate).format("DD/MM/YYYY") : "—",
-          location: loc
-            ? `${loc.address}, ${loc.ward || ""}, ${loc.district}, ${loc.city}`
-            : "—",
+          location: loc ? `${loc.address}, ${loc.district}, ${loc.city}` : "—",
         });
       }
 
-      const mapped = data.map((item) => {
-        const o = item.orderDetailId;
-        const t = item.orderDetailId?.ticketId;
-
-        return {
-          ticketCode: item.ticketCode,
-          isCheckedIn: item.isCheckedIn,
-          checkinTime: item.checkinTime,
-          refundStatus: item.refundStatus,
-          seat: item.seatId?.seatNumber || "Không có",
-          buyer: o?.orderId?.fullName || "",
-          email: o?.orderId?.email || "",
-          phone: o?.orderId?.phoneNumber || "",
-          ticketName: t?.type,
-          price: t?.price || 0,
-        };
-      });
-
+      const mapped = data.map((item) => ({
+        ticketCode: item.ticketCode,
+        isCheckedIn: item.isCheckedIn,
+        checkinTime: item.checkinTime,
+        refundStatus: item.refundStatus,
+        buyer: item.orderDetailId?.orderId?.fullName || "Khách ẩn danh",
+        email: item.orderDetailId?.orderId?.email || "—",
+        phone: item.orderDetailId?.orderId?.phoneNumber || "—",
+        ticketName: item.orderDetailId?.ticketId?.type || "—",
+        price: item.orderDetailId?.ticketId?.price || 0,
+      }));
       setTickets(mapped);
     } catch (err) {
-      console.error(err);
       message.error("Không thể tải danh sách vé!");
     } finally {
       setLoading(false);
     }
   };
-  useEffect(() => {
-    message.config({
-      top: 100, // cách top 100px
-      duration: 3,
-    });
-  }, []);
 
-  useEffect(() => {
-    fetchTickets();
-  }, [eventId]);
+  // 2. Logic nhận diện khuôn mặt (QUÉT TỔNG)
+  const handleFaceConfirm = async () => {
+    const videoEl = videoRef.current;
 
-  // Load Face API models
+    // Chặn nếu: đang xử lý, video chưa sẵn sàng, hoặc modal đang đóng
+    if (
+      isProcessing ||
+      !videoEl ||
+      videoEl.readyState !== 4 ||
+      !faceModalVisible
+    )
+      return;
+
+    setIsProcessing(true);
+    try {
+      const detections = await faceapi
+        .detectSingleFace(videoEl, new faceapi.TinyFaceDetectorOptions())
+        .withFaceLandmarks(true)
+        .withFaceDescriptor();
+
+      if (!detections) {
+        setFaceMessage("🔍 Đang chờ khách hàng đứng trước camera...");
+        setFaceMessageType("warning");
+        setIsProcessing(false);
+        return;
+      }
+
+      setFaceMessage("⚙️ Đang đối soát dữ liệu...");
+      const faceDescriptor = Array.from(detections.descriptor);
+
+      const res = await axiosJWT.post(
+        "http://localhost:3001/api/checkin-order/event-face-checkin",
+        { eventId, faceDescriptor }
+      );
+
+      if (res.data.success) {
+        setFaceMessage(`✅ XIN CHÀO: ${res.data.buyerName.toUpperCase()}`);
+        setFaceMessageType("success");
+        fetchTickets(); // Cập nhật bảng ngay lập tức
+
+        // Đợi 3 giây để người cũ đi qua trước khi cho phép quét người mới
+        setTimeout(() => {
+          setIsProcessing(false);
+          setFaceMessage("🔍 Sẵn sàng cho khách tiếp theo...");
+          setFaceMessageType("warning");
+        }, 3000);
+      } else if (res.data.isAlreadyCheckedIn) {
+        // Trường hợp 2: Nhận diện đúng người nhưng họ đã vào rồi
+        setFaceMessage(`⚠️ ĐÃ VÀO CỬA: ${res.data.buyerName.toUpperCase()}`);
+        setFaceMessageType("warning"); // Hiện màu vàng cảnh báo
+        message.warning("Vé này đã được sử dụng!");
+      } else {
+        setFaceMessage(`❌ ${res.data.message || "Không khớp dữ liệu"}`);
+        setFaceMessageType("error");
+        // Đợi 1.5 giây để thử lại
+        setTimeout(() => setIsProcessing(false), 1500);
+      }
+    } catch (err) {
+      console.error("Lỗi AI:", err);
+      setIsProcessing(false);
+    }
+  };
+
+  // 3. Load AI Models khi trang được mở
   useEffect(() => {
     const loadModels = async () => {
       const MODEL_URL = "/models";
-      await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
-      await faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL);
-      await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
-    };
-    loadModels();
-  }, []);
-
-  // Open/close camera
-  useEffect(() => {
-    const startVideo = async () => {
-      if (faceModalVisible) {
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({
-            video: true,
-          });
-          if (videoRef.current) {
-            videoRef.current.srcObject = stream;
-            await videoRef.current.play();
-          }
-        } catch (err) {
-          console.error("Không thể mở camera:", err);
-          message.error("Không thể truy cập camera!");
-          setFaceModalVisible(false);
-        }
-      } else {
-        if (videoRef.current?.srcObject) {
-          videoRef.current.srcObject.getTracks().forEach((t) => t.stop());
-        }
+      try {
+        await Promise.all([
+          faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+          faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL),
+          faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
+        ]);
+      } catch (e) {
+        message.error("Lỗi tải model AI!");
       }
     };
-    startVideo();
+    loadModels();
+    fetchTickets();
+  }, [eventId]);
+
+  // 4. Quản lý Camera và Vòng lặp quét
+  useEffect(() => {
+    let timer = null;
+
+    if (faceModalVisible) {
+      console.log("--- Modal mở: Bắt đầu khởi động Camera ---");
+
+      navigator.mediaDevices
+        .getUserMedia({ video: true })
+        .then((stream) => {
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+            console.log("--- Camera đã sẵn sàng ---");
+
+            // Đợi video thực sự phát rồi mới quét
+            videoRef.current.onloadedmetadata = () => {
+              console.log(
+                "--- Metadata video đã tải: Bắt đầu vòng lặp quét ---"
+              );
+              timer = setInterval(() => {
+                // Log này PHẢI hiện trong Console nếu máy đang quét
+                console.log("AI đang phân tích khung hình...");
+                handleFaceConfirm();
+              }, 1000);
+            };
+          }
+        })
+        .catch((err) => console.error("Lỗi mở camera:", err));
+    } else {
+      console.log("--- Modal đóng: Dừng quét ---");
+      if (videoRef.current?.srcObject) {
+        videoRef.current.srcObject.getTracks().forEach((t) => t.stop());
+      }
+      if (timer) clearInterval(timer);
+    }
+
+    return () => {
+      if (timer) clearInterval(timer);
+    };
   }, [faceModalVisible]);
 
-  const columns = [
-    { title: "Mã vé", dataIndex: "ticketCode" },
-    { title: "Tên vé", dataIndex: "ticketName" },
-    {
-      title: "Giá",
-      dataIndex: "price",
-      render: (v) => `${v.toLocaleString()} VND`,
-    },
-    { title: "Người mua", dataIndex: "buyer" },
-    { title: "Email", dataIndex: "email" },
-    { title: "SĐT", dataIndex: "phone" },
-
-    {
-      title: "Check-in",
-      render: (_, record) => {
-        if (record.isCheckedIn) {
-          return (
-            <>
-              <Tag color="green">Đã Check-in</Tag>
-              <div style={{ fontSize: 12, color: "#888" }}>
-                {record.checkinTime
-                  ? dayjs(record.checkinTime).format("DD/MM HH:mm")
-                  : ""}
-              </div>
-            </>
-          );
-        }
-
-        return (
-          <Button type="primary" onClick={() => openFaceModal(record)}>
-            Check-in Face ID
-          </Button>
-        );
-      },
-    },
-
-    {
-      title: "Thời gian check-in",
-      dataIndex: "checkinTime",
-      render: (v) => (v ? dayjs(v).format("DD/MM/YYYY HH:mm") : "—"),
-    },
-    {
-      title: "Hoàn vé",
-      render: (_, record) => {
-        if (record.isCheckedIn) {
-          return <Tag color="blue">Đã check-in</Tag>;
-        }
-
-        if (record.refundStatus === "REQUESTED") {
-          return (
-            <>
-              <Button
-                type="primary"
-                size="small"
-                onClick={() => approveRefund(record)}
-              >
-                Duyệt
-              </Button>
-
-              <Button
-                danger
-                size="small"
-                style={{ marginLeft: 8 }}
-                onClick={() => rejectRefund(record)}
-              >
-                Từ chối
-              </Button>
-            </>
-          );
-        }
-
-        if (record.refundStatus === "REFUNDED") {
-          return <Tag color="green">Đã hoàn</Tag>;
-        }
-
-        if (record.refundStatus === "REJECTED") {
-          return <Tag color="red">Đã từ chối</Tag>;
-        }
-
-        return <Tag color="default">—</Tag>;
-      },
-    },
-
-    // {
-    //   title: "Face ID",
-    //   render: (_, record) =>
-    //     record.isCheckedIn ? (
-    //       <Tag color="green">Đã Check-in</Tag>
-    //     ) : (
-    //       <Button onClick={() => openFaceModal(record)}>
-    //         Check-in Face ID
-    //       </Button>
-    //     ),
-    // },
-  ];
-
-  // Thêm các biến thống kê
+  // --- Thống kê ---
   const totalTickets = tickets.length;
   const checkedInTickets = tickets.filter((t) => t.isCheckedIn).length;
-  const refundedTickets = tickets.filter(
-    (t) => t.refundStatus === "REFUNDED"
-  ).length;
-  const refundRate =
-    totalTickets > 0 ? ((refundedTickets / totalTickets) * 100).toFixed(1) : 0;
   const actualRevenue = tickets
     .filter((t) => t.refundStatus !== "REFUNDED")
-    .reduce((sum, t) => sum + t.price, 0);
+    .reduce((sum, t) => sum + (Number(t.price) || 0), 0);
 
   return (
-    <div style={{ padding: 20 }}>
+    <div className="dashboard-container">
+      <style>{`
+        .dashboard-container { padding: 24px; background: #f0f2f5; min-height: 100vh; }
+        .header-card { border-radius: 12px; margin-bottom: 24px; }
+        .stat-card { border-radius: 12px; text-align: center; }
+        .video-box { border-radius: 12px; overflow: hidden; background: #000; position: relative; border: 4px solid #fff; }
+        .scan-overlay { 
+          position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+          width: 200px; height: 200px; border: 2px solid #52c41a; border-radius: 50%; 
+          box-shadow: 0 0 0 1000px rgba(0,0,0,0.6); 
+        }
+      `}</style>
+
       {eventInfo && (
-        <Card
-          style={{
-            marginBottom: 20,
-            borderRadius: 12,
-            boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
-          }}
-        >
-          <h2 style={{ marginBottom: 8 }}>{eventInfo.title}</h2>
-          <p style={{ margin: 0 }}>📅 {eventInfo.date}</p>
-          <p style={{ margin: 0 }}>📍 {eventInfo.location}</p>
+        <Card className="header-card">
+          <Row justify="space-between" align="middle">
+            <Col>
+              <Title level={3}>{eventInfo.title}</Title>
+              <Space>
+                <Text type="secondary">
+                  <CalendarOutlined /> {eventInfo.date}
+                </Text>
+                <Text type="secondary">
+                  <EnvironmentOutlined /> {eventInfo.location}
+                </Text>
+              </Space>
+            </Col>
+            <Col>
+              <Space>
+                <Button onClick={fetchTickets} icon={<BarChartOutlined />}>
+                  Làm mới
+                </Button>
+              </Space>
+            </Col>
+          </Row>
         </Card>
       )}
 
-      <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
-        <Col xs={24} sm={12} md={8} lg={4.8}>
-          <Card
-            style={{
-              borderRadius: 12,
-              textAlign: "center",
-              boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
-            }}
-          >
+      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+        <Col span={8}>
+          <Card className="stat-card">
             <Statistic
-              title="Tổng số vé"
+              title="Tổng vé"
               value={totalTickets}
-              valueStyle={{ fontSize: 28 }}
+              prefix={<UserOutlined />}
             />
           </Card>
         </Col>
-
-        <Col xs={24} sm={12} md={8} lg={4.8}>
-          <Card
-            style={{
-              borderRadius: 12,
-              textAlign: "center",
-              boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
-            }}
-          >
+        <Col span={8}>
+          <Card className="stat-card">
             <Statistic
-              title="Số vé đã check-in"
+              title="Đã Check-in"
               value={checkedInTickets}
-              valueStyle={{ fontSize: 28, color: "#3f8600" }}
+              valueStyle={{ color: "#52c41a" }}
             />
           </Card>
         </Col>
-
-        <Col xs={24} sm={12} md={8} lg={4.8}>
-          <Card
-            style={{
-              borderRadius: 12,
-              textAlign: "center",
-              boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
-            }}
-          >
+        <Col span={8}>
+          <Card className="stat-card">
             <Statistic
-              title="Doanh thu thực tế"
+              title="Doanh thu thực"
               value={actualRevenue}
               prefix="₫"
-              valueStyle={{ fontSize: 28, color: "#cf1322" }}
-            />
-          </Card>
-        </Col>
-
-        <Col xs={24} sm={12} md={8} lg={4.8}>
-          <Card
-            style={{
-              borderRadius: 12,
-              textAlign: "center",
-              boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
-            }}
-          >
-            <Statistic
-              title="Số vé đã hoàn"
-              value={refundedTickets}
-              valueStyle={{ fontSize: 28, color: "#cf1322" }}
-            />
-          </Card>
-        </Col>
-
-        <Col xs={24} sm={12} md={8} lg={4.8}>
-          <Card
-            style={{
-              borderRadius: 12,
-              textAlign: "center",
-              boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
-            }}
-          >
-            <Statistic
-              title="% vé hoàn"
-              value={refundRate}
-              suffix="%"
-              valueStyle={{ fontSize: 28, color: "#cf1322" }}
             />
           </Card>
         </Col>
@@ -431,31 +279,67 @@ const EventDashboardPage = () => {
 
       <Table
         dataSource={tickets}
-        columns={columns}
-        loading={loading}
         rowKey="ticketCode"
-        pagination={{ pageSize: 20 }}
-        style={{ borderRadius: 12, overflow: "hidden" }}
+        loading={loading}
+        columns={[
+          {
+            title: "Mã vé",
+            dataIndex: "ticketCode",
+            render: (v) => <b>{v}</b>,
+          },
+          { title: "Người mua", dataIndex: "buyer" },
+          { title: "Loại vé", dataIndex: "ticketName" },
+          {
+            title: "Trạng thái",
+            render: (_, r) =>
+              r.isCheckedIn ? (
+                <Tag color="success">
+                  Đã vào ({dayjs(r.checkinTime).format("HH:mm")})
+                </Tag>
+              ) : (
+                <Tag color="default">Chưa check-in</Tag>
+              ),
+          },
+        ]}
       />
 
-      {/* Modal Face ID */}
       <Modal
-        visible={faceModalVisible}
-        title="Check-in Face ID"
-        onCancel={closeFaceModal}
-        onOk={handleFaceConfirm}
+        open={faceModalVisible}
+        title="Hệ thống nhận diện AI tự động"
+        onCancel={() => setFaceModalVisible(false)}
+        footer={[
+          <Button key="close" onClick={() => setFaceModalVisible(false)}>
+            Đóng máy quét
+          </Button>,
+        ]}
+        centered
+        width={600}
       >
-        <video ref={videoRef} width="100%" height="auto" />
-        {faceMessage && (
-          <p
-            style={{
-              marginTop: 10,
-              color: faceMessageType === "success" ? "green" : "red",
-            }}
+        <div className="video-box">
+          <video
+            ref={videoRef}
+            width="100%"
+            autoPlay
+            muted
+            style={{ transform: "scaleX(-1)" }}
+          />
+          <div className="scan-overlay" />
+        </div>
+        <div style={{ marginTop: 20, textAlign: "center", minHeight: "40px" }}>
+          <Text
+            strong
+            style={{ fontSize: "16px" }}
+            type={
+              faceMessageType === "success"
+                ? "success"
+                : faceMessageType === "error"
+                ? "danger"
+                : "secondary"
+            }
           >
-            {faceMessage}
-          </p>
-        )}
+            {faceMessage || "Đang khởi động camera..."}
+          </Text>
+        </div>
       </Modal>
     </div>
   );
