@@ -1,108 +1,149 @@
 import React, { useState } from "react";
-import { Card, InputNumber, Button, message, Typography, Divider } from "antd";
+import {
+  Card,
+  InputNumber,
+  Input,
+  Button,
+  Typography,
+  Modal,
+  notification,
+} from "antd";
 import { useSelector, useDispatch } from "react-redux";
-import { deductBalance } from "../../services/WalletService";
+import { WalletOutlined, LockOutlined } from "@ant-design/icons";
 import { updateWalletBalance } from "../../redux/slides/userSlide";
-import { WalletOutlined, ArrowDownOutlined } from "@ant-design/icons";
-import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
+import { axiosJWT } from "../../services/UserService"; // axios đã có JWT
 
 const { Title, Text } = Typography;
 
-const WithdrawPayPalPage = () => {
+const WithdrawPage = () => {
   const dispatch = useDispatch();
   const user = useSelector((state) => state.user);
   const [amount, setAmount] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [password, setPassword] = useState("");
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [api, contextHolder] = notification.useNotification();
 
-  // Gọi API backend để tạo payout
-  const handleWithdraw = async () => {
+  const handleOpenModal = () => {
     if (!amount || amount <= 0) {
-      message.error("Vui lòng nhập số tiền hợp lệ");
+      api.error({ message: "Vui lòng nhập số tiền hợp lệ" });
       return;
     }
     if (amount > user.walletBalance) {
-      message.error("Số dư không đủ");
+      api.error({ message: "Số dư không đủ" });
       return;
     }
-    setLoading(true);
+    setIsModalOpen(true);
+  };
+
+  const handleConfirmWithdraw = async () => {
+    if (!password) {
+      api.error({ message: "Vui lòng nhập mật khẩu" });
+      return;
+    }
+
     try {
-      // Backend sẽ trả về link PayPal Payout hoặc xác nhận thanh toán
-      const res = await deductBalance(user.id, amount);
-      dispatch(updateWalletBalance(res.balance));
-      message.success(`Đã trừ ${amount.toLocaleString()}đ khỏi ví. `);
+      setIsProcessing(true);
+
+      const res = await axiosJWT.post("http://localhost:3000/wallet/deduct", {
+        amount,
+        password,
+      });
+
+      if (res.data.success) {
+        dispatch(updateWalletBalance(res.data.newBalance));
+        api.success({
+          message: "Rút tiền thành công",
+          description: `Đã gửi yêu cầu rút ${amount.toLocaleString()} đ`,
+        });
+        setIsModalOpen(false);
+        setAmount(null);
+        setPassword("");
+      }
     } catch (err) {
-      message.error(err.response?.data?.message || "Rút tiền thất bại");
+      api.error({
+        message: "Rút tiền thất bại",
+        description: err.response?.data?.message || "Lỗi hệ thống",
+      });
     } finally {
-      setLoading(false);
+      setIsProcessing(false);
     }
   };
 
   return (
     <div
       style={{
-        padding: "40px 20px",
         display: "flex",
         justifyContent: "center",
-        background: "#f6f8fc",
-        minHeight: "100vh",
+        padding: "40px 20px",
       }}
     >
+      {contextHolder}
       <Card
-        hoverable
         title={
-          <Title level={3} style={{ margin: 0, textAlign: "center" }}>
+          <Title level={3} style={{ textAlign: "center", margin: 0 }}>
             <WalletOutlined style={{ marginRight: 10, color: "#ff4d4f" }} />
             Rút tiền qua PayPal
           </Title>
         }
-        style={{ width: 460, maxWidth: "95%", borderRadius: 14 }}
-        bodyStyle={{ padding: 30 }}
+        style={{ width: 460, borderRadius: 14 }}
       >
-        {/* Balance */}
-        <div style={{ marginBottom: 28, textAlign: "center" }}>
+        <div style={{ textAlign: "center", marginBottom: 20 }}>
           <Text type="secondary">Số dư ví</Text>
-          <Title level={1} style={{ margin: 0, color: "#ff4d4f" }}>
+          <Title level={2} style={{ color: "#ff4d4f" }}>
             {user.walletBalance?.toLocaleString()} đ
           </Title>
         </div>
 
-        {/* Input tiền muốn rút */}
-        <div style={{ marginBottom: 28 }}>
-          <Text strong>Nhập số tiền muốn rút</Text>
-          <InputNumber
-            value={amount}
-            onChange={setAmount}
-            min={1000}
-            max={user.walletBalance}
-            style={{
-              width: "100%",
-              height: 50,
-              borderRadius: 10,
-              fontSize: 18,
-            }}
-          />
-        </div>
+        <InputNumber
+          value={amount}
+          onChange={setAmount}
+          min={1000}
+          max={user.walletBalance}
+          style={{ width: "100%", marginBottom: 20, height: 50, fontSize: 18 }}
+          placeholder="Nhập số tiền muốn rút"
+        />
 
-        {/* Button trừ tiền */}
         <Button
           type="primary"
           block
           size="large"
-          onClick={handleWithdraw}
-          loading={loading}
+          onClick={handleOpenModal}
           disabled={!amount || amount <= 0 || amount > user.walletBalance}
         >
-          Rút tiền
+          Yêu cầu rút tiền
         </Button>
-
-        {/* PayPal Payout (tùy backend hỗ trợ) */}
 
         <Text type="secondary" style={{ display: "block", marginTop: 10 }}>
           Tỷ giá ước tính: 1 USD ≈ 25.000 VND
         </Text>
       </Card>
+
+      <Modal
+        title={
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <LockOutlined />
+            Xác nhận mật khẩu
+          </div>
+        }
+        open={isModalOpen}
+        onOk={handleConfirmWithdraw}
+        confirmLoading={isProcessing}
+        onCancel={() => setIsModalOpen(false)}
+        okText="Xác nhận"
+        cancelText="Hủy"
+      >
+        <p>
+          Nhập mật khẩu của bạn để xác nhận rút {amount?.toLocaleString()} đ
+        </p>
+        <Input.Password
+          placeholder="Mật khẩu"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+      </Modal>
     </div>
   );
 };
 
-export default WithdrawPayPalPage;
+export default WithdrawPage;

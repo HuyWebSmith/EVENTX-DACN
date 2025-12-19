@@ -12,8 +12,14 @@ const EventFilterPage = () => {
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const categoryParam = params.get("category") || "";
+  const locationParam = params.get("location") || "";
   const [categories, setCategories] = useState([]);
-
+  const popularCities = [
+    { name: "Hồ Chí Minh", slug: "Hồ Chí Minh" },
+    { name: "Hà Nội", slug: "Hà Nội" },
+    { name: "Đà Lạt", slug: "Đà Lạt" },
+    { name: "Đà Nẵng", slug: "Đà Nẵng" },
+  ];
   useEffect(() => {
     const fetchCategoryList = async () => {
       try {
@@ -28,16 +34,43 @@ const EventFilterPage = () => {
 
   const fetchEventByCategory = async () => {
     const res = await ProductService.getAllEvent(1000);
-    const all = res.data || [];
-    if (!categoryParam) return all;
-    return all.filter((ev) => ev.categoryId === categoryParam);
+    let filteredEvents = res.data || [];
+
+    // 1. Lọc theo Category
+    if (categoryParam) {
+      filteredEvents = filteredEvents.filter(
+        (ev) => ev.categoryId === categoryParam
+      );
+    }
+
+    // 2. Lọc theo Location (Sửa lại đoạn này)
+    if (locationParam) {
+      filteredEvents = filteredEvents.filter((ev) =>
+        ev.locations?.some((loc) => {
+          // Chuyển cả 2 về chữ thường để so sánh chuẩn xác
+          const cityInDb = loc.city?.toLowerCase() || "";
+          const citySearch = locationParam.toLowerCase();
+          return cityInDb.includes(citySearch);
+        })
+      );
+    }
+
+    return filteredEvents;
   };
 
   const { data: events = [], isLoading } = useQuery({
-    queryKey: ["events-filter", categoryParam],
+    queryKey: ["events-filter", categoryParam, locationParam],
     queryFn: fetchEventByCategory,
   });
-
+  const handleFilter = (type, value) => {
+    const newParams = new URLSearchParams(params);
+    if (value) {
+      newParams.set(type, value);
+    } else {
+      newParams.delete(type);
+    }
+    navigate(`/events?${newParams.toString()}`);
+  };
   return (
     <>
       <div className="event-filter-container">
@@ -53,52 +86,68 @@ const EventFilterPage = () => {
           {/* SIDEBAR FILTER */}
           <aside style={{ width: "280px" }}>
             <div className="filter-sidebar">
-              <h3
-                style={{
-                  color: "#fff",
-                  fontSize: "20px",
-                  marginBottom: "24px",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "10px",
-                }}
-              >
+              {/* KHỐI DANH MỤC (Giữ nguyên hoặc sửa dùng handleFilter) */}
+              <h3 className="filter-title">
                 <AppstoreOutlined /> Danh mục
               </h3>
-
               <div
                 className={`category-item ${!categoryParam ? "active" : ""}`}
-                onClick={() => navigate(`/events`)}
+                onClick={() => handleFilter("category", "")}
               >
                 Tất cả sự kiện
               </div>
-
               {categories.map((cate) => (
                 <div
                   key={cate._id}
                   className={`category-item ${
                     categoryParam === cate._id ? "active" : ""
                   }`}
-                  onClick={() => navigate(`/events?category=${cate._id}`)}
+                  onClick={() => handleFilter("category", cate._id)}
                 >
                   <span style={{ flex: 1 }}>{cate.name}</span>
-                  {categoryParam === cate._id && (
-                    <RightOutlined style={{ fontSize: "12px" }} />
-                  )}
                 </div>
               ))}
+
+              {/* KHỐI ĐỊA ĐIỂM (MỚI THÊM) */}
+              <div style={{ marginTop: "40px" }}>
+                <h3 className="filter-title">📍 Địa điểm</h3>
+                <div
+                  className={`category-item ${!locationParam ? "active" : ""}`}
+                  onClick={() => handleFilter("location", "")}
+                >
+                  Toàn quốc
+                </div>
+                {popularCities.map((city) => (
+                  <div
+                    key={city.slug}
+                    className={`category-item ${
+                      locationParam === city.slug ? "active" : ""
+                    }`}
+                    onClick={() => handleFilter("location", city.slug)}
+                  >
+                    <span style={{ flex: 1 }}>{city.name}</span>
+                    {locationParam === city.slug && (
+                      <RightOutlined style={{ fontSize: "12px" }} />
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           </aside>
 
           {/* EVENT LIST */}
           <main style={{ flex: 1 }}>
             <h2 className="section-title">
-              {categoryParam
-                ? `${
-                    categories.find((c) => c._id === categoryParam)?.name ||
-                    "Danh mục"
-                  }`
-                : "Khám phá tất cả sự kiện"}
+              {isLoading ? (
+                "Đang tìm kiếm..."
+              ) : (
+                <>
+                  Sự kiện{" "}
+                  {categories.find((c) => c._id === categoryParam)?.name ||
+                    "tất cả"}
+                  {locationParam && ` tại ${locationParam}`}
+                </>
+              )}
             </h2>
 
             {isLoading ? (

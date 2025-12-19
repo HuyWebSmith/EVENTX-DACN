@@ -29,7 +29,7 @@ router.post("/create-paypal", async (req, res) => {
       return res.status(400).json({ message: "Không có vé nào được chọn" });
     if (!totalPrice || totalPrice <= 0)
       return res.status(400).json({ message: "Tổng tiền không hợp lệ" });
-    console.log("customerInfo", customerInfo);
+
     // 1️⃣ Tạo Order
     const newOrder = await Order.create({
       userId: customerInfo?.userId,
@@ -66,7 +66,6 @@ router.post("/create-paypal", async (req, res) => {
       }
       await Ticket.findByIdAndUpdate(ticketId, { $inc: { sold: quantity } });
     }
-    console.log(holdId);
 
     await HeldTicket.deleteMany({
       userId: customerInfo.userId,

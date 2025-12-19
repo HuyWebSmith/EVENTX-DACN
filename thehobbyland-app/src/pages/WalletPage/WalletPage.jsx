@@ -43,7 +43,6 @@ const WalletPage = () => {
       }}
     >
       <Card
-        hoverable
         title={
           <Title level={3} style={{ margin: 0, textAlign: "center" }}>
             <WalletOutlined style={{ marginRight: 10, color: "#1677ff" }} />
@@ -159,6 +158,7 @@ const WalletPage = () => {
             </Text>
 
             <PayPalButtons
+              key={amount}
               style={{
                 layout: "vertical",
                 color: "blue",

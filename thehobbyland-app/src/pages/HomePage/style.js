@@ -10,6 +10,8 @@ export const WrapperTypeProduct = styled.div`
   margin-bottom: 20px;
   background: transparent;
   border-radius: 0;
+  position: relative;
+  z-index: 100;
 `;
 
 export const WrapperProducts = styled.div`

@@ -1,28 +1,13 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Ticket, creditCard } from "lucide-react"; // Thêm icon cho đẹp nếu muốn
 
 const BillSummary = ({ tickets, selectedQuantities, onHold }) => {
   const navigate = useNavigate();
+  const [isModalVisible, setModalVisible] = useState(false);
+  const [countdown, setCountdown] = useState(8);
 
-  if (
-    !tickets ||
-    !Array.isArray(tickets) ||
-    tickets.length === 0 ||
-    !selectedQuantities
-  ) {
-    return null;
-  }
-
-  const formatCurrency = (amount) =>
-    new Intl.NumberFormat("vi-VN", {
-      style: "currency",
-      currency: "VND",
-    }).format(amount);
-
-  const selectedTickets = tickets.filter(
-    (t) => (selectedQuantities?.[t._id] || 0) > 0
-  );
+  const selectedTickets =
+    tickets?.filter((t) => (selectedQuantities?.[t._id] || 0) > 0) || [];
 
   const totalQuantity = selectedTickets.reduce(
     (sum, t) => sum + (selectedQuantities?.[t._id] || 0),
@@ -34,11 +19,34 @@ const BillSummary = ({ tickets, selectedQuantities, onHold }) => {
     0
   );
 
+  const formatCurrency = (amount) =>
+    new Intl.NumberFormat("vi-VN", {
+      style: "currency",
+      currency: "VND",
+    }).format(amount);
+
   const handlePlaceOrder = () => {
-    if (totalQuantity > 0 && onHold) {
-      onHold();
-    }
+    if (totalQuantity === 0) return;
+    setCountdown(8);
+    setModalVisible(true);
   };
+
+  const handleOk = () => {
+    setModalVisible(false);
+    onHold && onHold();
+  };
+
+  // Countdown logic
+  useEffect(() => {
+    if (!isModalVisible) return;
+    if (countdown <= 0) {
+      setModalVisible(false);
+      onHold && onHold();
+      return;
+    }
+    const timer = setTimeout(() => setCountdown((prev) => prev - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [countdown, isModalVisible, onHold]);
 
   return (
     <div
@@ -56,11 +64,9 @@ const BillSummary = ({ tickets, selectedQuantities, onHold }) => {
         border: "1px solid #f1f5f9",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-        <h3 style={{ fontSize: "1.25rem", fontWeight: "700", margin: 0 }}>
-          Hóa đơn vé
-        </h3>
-      </div>
+      <h3 style={{ fontSize: "1.25rem", fontWeight: "700", margin: 0 }}>
+        Hóa đơn vé
+      </h3>
 
       <div
         style={{ maxHeight: "400px", overflowY: "auto", paddingRight: "5px" }}
@@ -76,7 +82,6 @@ const BillSummary = ({ tickets, selectedQuantities, onHold }) => {
                   borderBottom: "1px dashed #e2e8f0",
                 }}
               >
-                {/* Dòng 1: Tên vé và Loại vé */}
                 <div
                   style={{
                     display: "flex",
@@ -97,8 +102,6 @@ const BillSummary = ({ tickets, selectedQuantities, onHold }) => {
                     x{qty}
                   </span>
                 </div>
-
-                {/* Dòng 2: Chi tiết giá đơn vị */}
                 <div
                   style={{
                     display: "flex",
@@ -110,8 +113,6 @@ const BillSummary = ({ tickets, selectedQuantities, onHold }) => {
                   <span>Đơn giá: {formatCurrency(ticket.price)}</span>
                   <span>{formatCurrency(ticket.price * qty)}</span>
                 </div>
-
-                {/* Dòng 3: Khu vực (nếu có) */}
                 {ticket.zoneName && (
                   <div
                     style={{
@@ -127,15 +128,14 @@ const BillSummary = ({ tickets, selectedQuantities, onHold }) => {
             );
           })
         ) : (
-          <div
+          <p
             style={{ textAlign: "center", padding: "20px 0", color: "#94a3b8" }}
           >
-            <p style={{ fontSize: "0.9rem" }}>Chưa có vé nào được chọn</p>
-          </div>
+            Chưa có vé nào được chọn
+          </p>
         )}
       </div>
 
-      {/* Phần tổng kết */}
       <div
         style={{
           marginTop: "0.5rem",
@@ -154,7 +154,6 @@ const BillSummary = ({ tickets, selectedQuantities, onHold }) => {
           <span style={{ color: "#64748b" }}>Tổng số lượng:</span>
           <span style={{ fontWeight: "600" }}>{totalQuantity} vé</span>
         </div>
-
         <div
           style={{
             display: "flex",
@@ -180,29 +179,97 @@ const BillSummary = ({ tickets, selectedQuantities, onHold }) => {
           color: "black",
           border: "none",
           cursor: totalQuantity > 0 ? "pointer" : "not-allowed",
-          transition: "all 0.2s ease",
           fontSize: "1rem",
         }}
-        onMouseOver={(e) =>
-          totalQuantity > 0 && (e.target.style.backgroundColor = "#1C9EEF")
-        }
-        onMouseOut={(e) =>
-          totalQuantity > 0 && (e.target.style.backgroundColor = "#8FD5FF")
-        }
       >
         Tiếp tục thanh toán
       </button>
 
-      <p
-        style={{
-          fontSize: "0.75rem",
-          color: "#94a3b8",
-          textAlign: "center",
-          margin: 0,
-        }}
-      >
-        Bằng cách nhấn nút, bạn đồng ý với các quy định đặt vé của chúng tôi.
-      </p>
+      {isModalVisible && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0,0,0,0.4)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "#fff",
+              borderRadius: "12px",
+              padding: "25px 30px",
+              width: "400px",
+              maxWidth: "90%",
+              boxShadow: "0 8px 20px rgba(0,0,0,0.2)",
+            }}
+          >
+            <h2 style={{ marginBottom: 10 }}>Bạn đang giữ vé</h2>
+            <p>
+              Vui lòng thanh toán trong <b>15 phút</b>. Không thoát hoặc làm mới
+              trang, nếu làm sẽ mất lượt giữ vé.
+            </p>
+
+            <div style={{ marginTop: 15 }}>
+              <div
+                style={{
+                  width: "100%",
+                  height: "8px",
+                  backgroundColor: "#e2e8f0",
+                  borderRadius: "4px",
+                  overflow: "hidden",
+                }}
+              >
+                <div
+                  style={{
+                    width: `${(countdown / 8) * 100}%`,
+                    height: "100%",
+                    backgroundColor: "#3b82f6",
+                    transition: "width 1s linear",
+                  }}
+                />
+              </div>
+              <p style={{ textAlign: "center", marginTop: 5 }}>{countdown}s</p>
+            </div>
+
+            <div style={{ marginTop: 20, textAlign: "right" }}>
+              <button
+                onClick={() => setModalVisible(false)}
+                style={{
+                  padding: "8px 20px",
+                  backgroundColor: "#ef4444",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                  marginRight: "5px",
+                }}
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleOk}
+                style={{
+                  padding: "8px 20px",
+                  backgroundColor: "#10b981",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                }}
+              >
+                OK, tiếp tục thanh toán
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

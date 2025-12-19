@@ -1,17 +1,15 @@
+// models/Slider.js
 const mongoose = require("mongoose");
-const Schema = mongoose.Schema;
 
-const sliderSchema = new Schema({
-  title: { type: String },
-  description: { type: String },
-  imageUrl: { type: String, trim: true },
-  link: { type: String, trim: true },
-  order: { type: Number, default: 0 },
-  isActive: { type: Boolean, default: true },
-  createdDate: { type: Date, default: Date.now },
-  videoUrl: { type: String, trim: true },
+const SliderSchema = new mongoose.Schema(
+  {
+    name: { type: String, default: "LUNDEV" },
+    title: { type: String, required: true },
+    sub: { type: String },
+    desc: { type: String },
+    img: { type: String, required: true }, // Lưu URL ảnh từ Cloudinary hoặc Server
+  },
+  { timestamps: true }
+);
 
-  // Loại bỏ ImageFile và VideoFile ([NotMapped])
-});
-
-module.exports = mongoose.model("Slider", sliderSchema);
+module.exports = mongoose.model("Slider", SliderSchema);

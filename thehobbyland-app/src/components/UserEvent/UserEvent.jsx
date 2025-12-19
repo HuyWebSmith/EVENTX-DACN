@@ -183,7 +183,24 @@ const renderTicketFormList = () => (
                 name={[name, "endDate"]}
                 label="Sự kiện kết thúc"
                 labelCol={{ span: 24 }}
-                rules={[{ required: true, message: "Kết thúc" }]}
+                rules={[
+                  { required: true, message: "Vui lòng chọn ngày" },
+                  ({ getFieldValue }) => ({
+                    validator(_, value) {
+                      const start = getFieldValue([
+                        "tickets",
+                        name,
+                        "startDate",
+                      ]);
+                      if (!value || !start || value.isAfter(start)) {
+                        return Promise.resolve();
+                      }
+                      return Promise.reject(
+                        new Error("Ngày kết thúc vé phải sau ngày bắt đầu")
+                      );
+                    },
+                  }),
+                ]}
               >
                 <DatePicker
                   placeholder="Ngày & Giờ"
@@ -684,10 +701,10 @@ const UserEvent = () => {
           )
           .map(([k]) => k);
         console.log("❌ THIẾU:", missing);
-        // Gửi yêu cầu PUT đến API
+
         await axiosJWT.put(
           `http://localhost:3001/api/event/update/${editingEvent._id}`,
-          finalPayload // 👈 Payload ĐẦY ĐỦ
+          finalPayload
         );
 
         setEditingEvent(null);
@@ -947,7 +964,20 @@ const UserEvent = () => {
               <Form.Item
                 label="Ngày kết thúc"
                 name="eventEndDate"
-                rules={[{ required: true, message: "Vui lòng chọn ngày" }]}
+                rules={[
+                  { required: true, message: "Vui lòng chọn ngày" },
+                  ({ getFieldValue }) => ({
+                    validator(_, value) {
+                      const startDate = getFieldValue("eventDate");
+                      if (!value || !startDate || value.isAfter(startDate)) {
+                        return Promise.resolve();
+                      }
+                      return Promise.reject(
+                        new Error("Ngày kết thúc phải sau ngày bắt đầu")
+                      );
+                    },
+                  }),
+                ]}
               >
                 <StyledDatePicker />
               </Form.Item>

@@ -20,6 +20,8 @@ import CheckInFaceId from "../pages/CheckInFaceId/CheckInFaceId";
 import WalletPage from "../pages/WalletPage/WalletPage";
 import VerifyEmailPage from "../pages/VerifyEmailPage/VerifyEmailPage";
 import WithdrawPage from "../pages/WithdrawPage/WithdrawPage";
+import WalletHistoryPage from "../pages/WalletHistoryPage/WalletHistoryPage";
+
 export const routes = [
   {
     path: "/",
@@ -135,5 +137,11 @@ export const routes = [
     path: "/verify-email",
     page: VerifyEmailPage,
     isShowHeader: false,
+  },
+  {
+    path: "/wallet/history",
+    page: WalletHistoryPage,
+    isShowHeader: true,
+    isPrivate: true,
   },
 ];

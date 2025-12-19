@@ -63,6 +63,9 @@ export const loginUser = async (data) => {
   const res = await axios.post(`${API}/user/sign-in`, data, {
     withCredentials: true,
   });
+  if (res.data.access_token) {
+    localStorage.setItem("access_token", res.data.access_token);
+  }
   return res.data;
 };
 
@@ -90,6 +93,7 @@ export const refreshToken = async () => {
 };
 
 export const logoutUser = async () => {
+  localStorage.removeItem("access_token");
   const res = await axios.post(
     `${API}/user/log-out`,
     {},

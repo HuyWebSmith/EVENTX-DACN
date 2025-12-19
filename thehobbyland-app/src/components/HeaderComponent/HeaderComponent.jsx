@@ -17,7 +17,7 @@ import {
 } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { logoutUser } from "../../services/UserService";
+import { logoutUser, updateUser } from "../../services/UserService";
 import { resetUser } from "../../redux/slides/userSlide";
 import LoadingComponent from "../LoadingComponent/LoadingComponent";
 import {
@@ -88,6 +88,7 @@ const HeaderComponent = ({ isHiddenSearch = false, isHiddenCart = false }) => {
     await logoutUser();
     dispatch(resetUser());
     setLoading(false);
+    navigate("/sign-in");
   };
 
   const content = (

@@ -36,6 +36,7 @@ export const userSlice = createSlice({
         linkedInProfile,
         isAdmin,
         walletBalance,
+        refreshToken,
         favorites = [], // luôn có giá trị mặc định
       } = action.payload;
 
@@ -52,6 +53,7 @@ export const userSlice = createSlice({
       state.linkedInProfile = linkedInProfile;
       state.isAdmin = isAdmin;
       state.favorites = favorites;
+      state.refreshToken = refreshToken;
       if (walletBalance !== undefined) {
         state.walletBalance = walletBalance;
       }

@@ -1,40 +1,289 @@
+/* 1. Container chính */
 .slider-container {
   width: 100%;
-  background-color: #fff;
-  padding: 50px 0;
+  max-width: 1300px;
+  height: 600px;
+  margin: 0 auto 24px;
+  position: relative;
   overflow: hidden;
+  border-radius: 12px;
+  background-color: #000;
 }
+.time-running {
+  position: absolute;
+  z-index: 1000;
+  width: 0%;
+  height: 6px;
+  background-color: #f1683a;
+  left: 0;
+  top: 0;
 
-.slick-slide {
-  transition: all 0.5s ease;
-  transform: scale(0.8);
-  opacity: 0.4;
-  z-index: 1;
-  filter: blur(1px);
+  animation: runningTime 10s linear forwards;
 }
-
-.slick-slide.slick-center {
-  transform: scale(1.1);
-  opacity: 1;
-  z-index: 5;
-  filter: blur(0);
+@keyframes runningTime {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0;
+  }
 }
-
-.slick-slide img {
+/* 2. Cấu trúc các Item trong danh sách */
+.slider-container .list .item {
   width: 100%;
-  height: auto;
-  border-radius: 15px;
-  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4);
-  display: block;
+  height: 100%;
+  position: absolute;
+  inset: 0;
+  display: none;
 }
 
-.slick-dots {
-  bottom: -40px;
+.slider-container .list .item:nth-child(2) {
+  display: block;
+  z-index: 1;
 }
-.slick-dots li button:before {
-  color: #fff !important;
-  font-size: 12px;
+
+.slider-container .list .item:nth-child(1) {
+  display: block;
+  z-index: 5;
 }
-.slick-dots li.slick-active button:before {
-  color: #fce762 !important;
+
+.slider-container .list .item::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+
+  background: linear-gradient(
+    to right,
+    rgba(0, 0, 0, 0.8) 0%,
+    rgba(0, 0, 0, 0.4) 50%,
+    transparent 100%
+  );
+
+  z-index: 8;
+  opacity: 1;
+  pointer-events: none;
+}
+
+.slider-container .list .item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.slider-container .list .item:nth-child(1) img {
+  width: 150px;
+  height: 220px;
+  position: absolute;
+  bottom: 50px;
+  right: 50px;
+  border-radius: 20px;
+  z-index: 6;
+  animation: showImage 0.6s ease-in-out forwards;
+}
+
+@keyframes showImage {
+  to {
+    bottom: 0;
+    right: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: 0;
+  }
+}
+
+.slider-container .list .item .content {
+  position: absolute;
+  top: 45%;
+  left: 80px;
+  transform: translateY(-50%);
+  width: 650px;
+  max-width: 80%;
+  z-index: 20;
+  color: #fff;
+  text-align: left;
+  filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.5));
+}
+
+.slider-container .list .item .content .OrganizeName {
+  font-weight: bold;
+  letter-spacing: 5px;
+  margin-bottom: 10px;
+  color: #eee;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+}
+
+.slider-container .list .item .content .titleEvent1,
+.slider-container .list .item .content .titleEvent2 {
+  font-weight: 800;
+  font-size: 4em;
+  line-height: 1.1em;
+  text-transform: uppercase;
+  text-shadow: 2px 2px 0px #000, 0 0 10px rgba(255, 255, 255, 0.3),
+    0 0 20px rgba(241, 104, 58, 0.2);
+}
+
+.slider-container .list .item .content .titleEvent2 {
+  color: #f1683a;
+  text-shadow: 2px 2px 0px #000, 0 0 15px rgba(241, 104, 58, 0.6),
+    /* Glow cam mạnh */ 0 0 30px rgba(241, 104, 58, 0.3);
+  animation: glowEffect 3s infinite alternate; /* Hiệu ứng nhấp nháy nhẹ */
+}
+@keyframes glowEffect {
+  from {
+    filter: brightness(1);
+  }
+  to {
+    filter: brightness(1.3) drop-shadow(0 0 10px rgba(241, 104, 58, 0.4));
+  }
+}
+.slider-container .list .item .content .descriptionEvent {
+  margin: 20px 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #fff;
+  font-weight: 400;
+
+  text-shadow: 2px 2px 8px rgba(0, 0, 0, 1);
+}
+
+/* Animation cho Content - Đợi ảnh phóng xong mới hiện */
+.slider-container .list .item:nth-child(1) .content .OrganizeName,
+.slider-container .list .item:nth-child(1) .content .titleEvent1,
+.slider-container .list .item:nth-child(1) .content .titleEvent2,
+.slider-container .list .item:nth-child(1) .content .descriptionEvent,
+.slider-container .list .item:nth-child(1) .content .buttons {
+  opacity: 0;
+  transform: translateY(100px); /* Bắt đầu từ dưới thấp */
+  filter: blur(20px);
+
+  animation: moveUp 0.8s cubic-bezier(0.215, 0.61, 0.355, 1) forwards;
+}
+@keyframes moveUp {
+  to {
+    opacity: 1;
+    transform: translateY(0); /* Về lại vị trí chuẩn */
+    filter: blur(0);
+  }
+}
+.slider-container .list .item:nth-child(1) .content .titleEvent1 {
+  animation-delay: 0.6s;
+}
+.slider-container .list .item:nth-child(1) .content .titleEvent2 {
+  animation-delay: 0.7s;
+}
+.slider-container .list .item:nth-child(1) .content .descriptionEvent {
+  animation-delay: 0.8s;
+}
+.slider-container .list .item:nth-child(1) .content .buttons {
+  animation-delay: 0.9s;
+}
+
+@keyframes showContent {
+  to {
+    transform: translateY(2);
+    filter: blur(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeIn {
+  to {
+    opacity: 1;
+  }
+}
+
+/* 5. Nút bấm */
+.slider-container .list .item .content .buttons {
+  display: flex;
+  gap: 15px;
+}
+
+.slider-container .list .item .content button {
+  padding: 10px 25px;
+  border: none;
+  background-color: #fff;
+  color: #000;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: 0.3s;
+}
+
+.slider-container .list .item .content button:nth-child(2) {
+  background-color: transparent;
+  color: #fff;
+  border: 1px solid #fff;
+}
+
+.slider-container .list .item .content button:hover {
+  background-color: #f1683a;
+  color: #fff;
+  border-color: #f1683a;
+}
+
+/* 6. Thumbnail - Tinh chỉnh lại vị trí và khoảng cách */
+
+.thumbnail {
+  position: absolute;
+  bottom: 50px;
+  right: -80px;
+  width: 550px;
+  z-index: 100;
+  display: flex;
+  gap: 20px;
+  overflow: visible;
+}
+
+.thumbnail .item {
+  width: 280px;
+  height: 160px;
+  flex-shrink: 0;
+  position: relative;
+  border-radius: 20px;
+  overflow: hidden;
+  cursor: pointer;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  transition: 0.5s ease-in-out;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Ẩn cái số 1 (vì nó đang hiện trên banner chính) */
+.thumbnail .item:nth-child(1) {
+  width: 0;
+  opacity: 0;
+  margin: 0;
+  pointer-events: none;
+}
+
+/* Cái tiếp theo (Hiện đầy đủ) */
+.thumbnail .item:nth-child(2) {
+  opacity: 1;
+  filter: brightness(1);
+  z-index: 2;
+}
+
+/* Cái sắp tới (Hiện 1 nửa và mờ mờ) */
+.thumbnail .item:nth-child(3) {
+  opacity: 0.4; /* Làm mờ hẳn đi */
+  filter: blur(2px) grayscale(0.5); /* Thêm blur cho bí ẩn */
+  transform: scale(0.9);
+  z-index: 1;
+}
+
+/* Ẩn hoàn toàn tất cả các cái phía sau nữa */
+.thumbnail .item:nth-child(n + 4) {
+  display: none;
+}
+
+/* Hiệu ứng Hover cho cái chuẩn bị click (thứ 2) */
+.thumbnail .item:nth-child(2):hover {
+  filter: brightness(1.2);
+  border-color: #f1683a;
+  transform: scale(1.05);
+}
+.thumbnail .item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* Giữ tỉ lệ ảnh không bị méo */
+  transition: 0.4s;
 }

@@ -8,16 +8,15 @@ import * as ProductService from "../../services/ProductService";
 import * as CategoryService from "../../services/CategoryService";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Spin, Typography } from "antd";
-import slider1 from "../../assets/images/Slider1.jpg";
-import slider2 from "../../assets/images/Slider2.png";
-import slider3 from "../../assets/images/Slider3.jpg";
-import slider4 from "../../assets/images/Slider4.jpg";
-import slider5 from "../../assets/images/Slider5.jpg";
-import slider6 from "../../assets/images/Slider6.png";
+
 import BannerComponent from "../../components/BannerComponent/BannerComponent";
+import CityCard from "../../components/CityCard/CityCard";
 import Footer from "../../components/Footer/Footer";
+import { Center } from "@mantine/core";
+import axios from "axios";
 const HomePage = () => {
   const [categories, setCategories] = useState([]);
+
   const [products, setProducts] = useState([]);
   const [page, setPage] = useState(1); // page hiện tại
   const [loadingMore, setLoadingMore] = useState(false);
@@ -27,7 +26,20 @@ const HomePage = () => {
   const [searchParams] = useSearchParams();
   const searchQuery = searchParams.get("search") || "";
   const navigate = useNavigate();
-
+  const [sliders, setSliders] = useState([]);
+  useEffect(() => {
+    const fetchSliders = async () => {
+      try {
+        const res = await axios.get("http://localhost:3001/api/slider/get-all");
+        if (res.data.status === "OK") {
+          setSliders(res.data.data);
+        }
+      } catch (error) {
+        console.error("Lỗi lấy slider:", error);
+      }
+    };
+    fetchSliders();
+  }, []);
   // Fetch danh sách categories
   useEffect(() => {
     const fetchCategories = async () => {
@@ -107,9 +119,11 @@ const HomePage = () => {
             minHeight: "1000px",
           }}
         >
-          <SliderComponent
-            arrImages={[slider1, slider2, slider3, slider4, slider5, slider6]}
-          />
+          <div style={{ display: "flex", justifyContent: "center" }}>
+            <div style={{ width: "1300px" }}>
+              <SliderComponent dataSliders={sliders} />
+            </div>
+          </div>
 
           <WrapperProducts>
             {isLoading ? (
@@ -197,6 +211,7 @@ const HomePage = () => {
             </div>
           )}
         </div>
+        <CityCard></CityCard>
         <BannerComponent></BannerComponent>
       </div>
     </>

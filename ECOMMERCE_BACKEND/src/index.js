@@ -17,6 +17,7 @@ const walletRouter = require("./routes/walletRoute");
 require("./services/eventStatusCron"); // cron service
 require("./services/ticketStatusCron"); // cron service
 const favoriteRoutes = require("./routes/favorite");
+const SliderRouter = require("./routes/SliderRouter");
 const http = require("http");
 const { Server } = require("socket.io");
 
@@ -42,6 +43,7 @@ app.use("/categories", categoryRoutes);
 app.use("/api/comments", require("./routes/commentRoutes"));
 app.use("/api/favorite", favoriteRoutes);
 app.use("/wallet", walletRouter);
+app.use("/api/slider", SliderRouter);
 // MongoDB connect
 mongoose
   .connect(process.env.MONGO_DB)

@@ -227,7 +227,8 @@ const CreateEventModal = ({ isModalOpen, setIsModalOpen, fetchEvents }) => {
           label="Mô tả sự kiện"
           name="description"
           rules={[{ required: true, message: "Vui lòng nhập mô tả" }]}
-          getValueFromEvent={() => description}
+          valuePropName="value"
+          trigger="onChange"
         >
           <RichTextEditor value={description} onChange={setDescription} />
         </Form.Item>
@@ -345,7 +346,12 @@ const CreateEventModal = ({ isModalOpen, setIsModalOpen, fetchEvents }) => {
           <Form.Item
             name={["redInvoice", "businessType"]}
             label="Loại hình doanh nghiệp"
-            rules={[{ required: true }]}
+            rules={[
+              {
+                required: true,
+                message: "Vui lòng nhập Loại hình doanh nghiệp",
+              },
+            ]}
           >
             <Select placeholder="Chọn loại hình">
               <Select.Option value="Cá nhân">Cá nhân</Select.Option>
@@ -357,7 +363,12 @@ const CreateEventModal = ({ isModalOpen, setIsModalOpen, fetchEvents }) => {
           <Form.Item
             name={["redInvoice", "fullName"]}
             label="Tên (Cá nhân/Công ty)"
-            rules={[{ required: true }]}
+            rules={[
+              {
+                required: true,
+                message: "Vui lòng nhập Tên (Cá nhân/Công ty)",
+              },
+            ]}
           >
             <InputComponent />
           </Form.Item>

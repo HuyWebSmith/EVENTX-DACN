@@ -7,7 +7,7 @@ import {
 import InputFormComponent from "../../components/InputFormComponent/InputFormComponent";
 import ButtonComponent from "../../components/ButtonComponent/ButtonComponent";
 import LoadingComponent from "../../components/LoadingComponent/LoadingComponent";
-import imageLogo from "../../assets/images/logo.png";
+import imageLogo from "../../assets/images/logo_EventX.jpg";
 import { Image } from "antd";
 import {
   EyeInvisibleOutlined,
@@ -42,6 +42,8 @@ const SignInPage = () => {
   const dispatch = useDispatch();
   const handleGetDetailUser = async (id, token) => {
     try {
+      const storage = localStorage.getItem("refresh_token");
+      const refreshToken = JSON.parse(storage);
       const res = await UserService.getDetailUser(id, token);
       const userData = res.data?.data || res.data;
 
@@ -49,6 +51,7 @@ const SignInPage = () => {
         updateUser({
           ...userData,
           access_token: token,
+          refreshToken,
         })
       );
     } catch (error) {
@@ -116,6 +119,10 @@ const SignInPage = () => {
           if (data.status === "OK") {
             success("Đăng nhập thành công!");
             localStorage.setItem("access_token", data.access_token);
+            localStorage.setItem(
+              "refresh_token",
+              JSON.stringify(data.refresh_token)
+            );
 
             const decoded = jwtDecode(data.access_token);
             if (decoded?.id) {
@@ -162,9 +169,10 @@ const SignInPage = () => {
             width: "800px",
             height: "445px",
             borderRadius: "10px",
-            backgroundColor: "#fff",
+            backgroundColor: "transparent",
             fontSize: "13px",
             overflow: "hidden",
+            boxShadow: "0 8px 32px 0 rgba(0, 0, 0, 0.8)",
           }}
         >
           <WrapperContainerLeft>
@@ -319,15 +327,12 @@ const SignInPage = () => {
               src={imageLogo}
               preview={false}
               alt="image-Logo"
-              height="203px"
-              width="203px"
+              height="123px"
+              width="290px"
               style={{
-                borderRadius: "50%",
                 objectFit: "cover",
-                boxShadow: "0 0 10px 5px rgba(0, 191, 255, 0.5)",
               }}
             />
-            <h4 style={{ marginTop: "10px" }}>Đặt vé tại EventX</h4>
           </WrapperContainerRight>
         </div>
       </div>

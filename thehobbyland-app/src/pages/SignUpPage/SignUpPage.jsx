@@ -7,7 +7,7 @@ import {
 import InputFormComponent from "../../components/InputFormComponent/InputFormComponent";
 import ButtonComponent from "../../components/ButtonComponent/ButtonComponent";
 import LoadingComponent from "../../components/LoadingComponent/LoadingComponent";
-import imageLogo from "../../assets/images/logo.png";
+import imageLogo from "../../assets/images/logo_EventX.jpg";
 import { Image } from "antd";
 import {
   EyeInvisibleOutlined,
@@ -104,7 +104,7 @@ const SignUpPage = () => {
             width: "800px",
             height: "500px",
             borderRadius: "10px",
-            backgroundColor: "#fff",
+            backgroundColor: "transparent",
             fontSize: "13px",
             overflow: "hidden",
           }}
@@ -328,16 +328,13 @@ const SignUpPage = () => {
             <Image
               src={imageLogo}
               preview={false}
-              alt="Logo"
-              height={203}
-              width={203}
+              alt="image-Logo"
+              height="123px"
+              width="290px"
               style={{
-                borderRadius: "50%",
                 objectFit: "cover",
-                boxShadow: "0 0 10px 5px rgba(0, 191, 255, 0.5)",
               }}
             />
-            <h4 style={{ marginTop: 10 }}>Đặt vé tại EventX</h4>
           </WrapperContainerRight>
         </div>
       </div>

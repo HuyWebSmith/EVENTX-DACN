@@ -11,23 +11,27 @@ import { CalendarOutlined, EnvironmentOutlined } from "@ant-design/icons";
 
 const CardComponent = (props) => {
   const { title, eventDate, price, image, logo, address, tickets = [] } = props;
-  // State để xử lý hover effect thủ công nếu cần
+
+  const cityName =
+    address
+      ?.toString()
+      .replace(/Thành phố|TP\.|TP/gi, "")
+      .trim() || "Địa điểm";
   const [isHovered, setIsHovered] = useState(false);
 
   const formattedPrice = price
     ? `Từ ${price.toLocaleString("vi-VN")}đ`
     : "Liên hệ";
 
-  // --- DEFINING NEW LUXURY STYLES ---
   const styles = {
     cardContainer: {
       width: 300,
-      // Gradient nền tối tạo chiều sâu thay vì màu phẳng
+
       background: "linear-gradient(145deg, #2e2e2e, #1a1a1a)",
-      borderRadius: "16px", // Bo góc mềm mại hơn
+      borderRadius: "16px",
       overflow: "hidden",
-      border: "1px solid rgba(255, 255, 255, 0.08)", // Viền mỏng bắt sáng
-      // Đổ bóng nhiều lớp tạo cảm giác nổi 3D cao cấp
+      border: "1px solid rgba(255, 255, 255, 0.08)",
+
       boxShadow: isHovered
         ? "0 20px 30px rgba(0, 0, 0, 0.4), 0 8px 12px rgba(0, 0, 0, 0.2)"
         : "0 10px 20px rgba(0, 0, 0, 0.3), 0 4px 6px rgba(0, 0, 0, 0.1)",
@@ -48,7 +52,7 @@ const CardComponent = (props) => {
       // Hiệu ứng zoom nhẹ khi hover
       transform: isHovered ? "scale(1.05)" : "scale(1.0)",
     },
-    // Lớp phủ gradient lên ảnh để làm nổi bật text trắng
+
     imageOverlay: {
       position: "absolute",
       bottom: 0,
@@ -58,16 +62,16 @@ const CardComponent = (props) => {
       background: "linear-gradient(to top, rgba(26,26,26,0.9), transparent)",
       zIndex: 1,
     },
-    // Hiệu ứng kính (Glassmorphism) cho các nhãn
+
     glassBadge: {
       position: "absolute",
       padding: "6px 10px",
       borderRadius: "8px",
-      // Kỹ thuật tạo hiệu ứng kính mờ
-      backgroundColor: "rgba(0, 0, 0, 0.3)", // Nền đen bán trong suốt
-      backdropFilter: "blur(8px)", // Làm mờ hậu cảnh
-      WebkitBackdropFilter: "blur(8px)", // Hỗ trợ Safari
-      border: "1px solid rgba(255, 255, 255, 0.1)", // Viền kính
+
+      backgroundColor: "rgba(0, 0, 0, 0.3)",
+      backdropFilter: "blur(8px)",
+      WebkitBackdropFilter: "blur(8px)",
+      border: "1px solid rgba(255, 255, 255, 0.1)",
       zIndex: 2,
       color: "#fff",
       fontSize: "11px",
@@ -77,37 +81,36 @@ const CardComponent = (props) => {
       gap: "4px",
     },
     cardBody: {
-      padding: "20px", // Tăng padding cho thoáng
-      color: "#fff",
+      padding: "20px",
       position: "relative",
       zIndex: 2,
     },
     title: {
       fontSize: "18px",
-      fontWeight: "700", // Đậm hơn chút
+      fontWeight: "700",
       marginBottom: "12px",
       color: "#fff",
-      height: "54px", // Điều chỉnh chiều cao cho 2 dòng thoáng hơn
-      lineHeight: "27px", // Tăng line-height
+      height: "54px",
+      lineHeight: "27px",
       overflow: "hidden",
       textOverflow: "ellipsis",
       display: "-webkit-box",
       WebkitLineClamp: 2,
       WebkitBoxOrient: "vertical",
-      // Text shadow nhẹ để chữ nổi lên nền tối
+
       textShadow: "0 2px 4px rgba(0,0,0,0.5)",
     },
     price: {
-      fontSize: "22px", // To hơn
-      fontWeight: "800", // Rất đậm
-      color: "#37B75A", // Giữ màu xanh thương hiệu (hoặc đổi sang màu Vàng Gold #D4AF37 nếu muốn sang hơn nữa)
+      fontSize: "22px",
+      fontWeight: "800",
+      color: "#37B75A",
       marginBottom: "12px",
       letterSpacing: "0.5px",
-      textShadow: "0 0 10px rgba(55, 183, 90, 0.3)", // Hiệu ứng phát sáng nhẹ cho giá
+      textShadow: "0 0 10px rgba(55, 183, 90, 0.3)",
     },
     dateRow: {
       fontSize: "14px",
-      color: "#ccc", // Màu xám bạc
+      color: "#ccc",
       display: "flex",
       alignItems: "center",
       fontWeight: "500",
@@ -163,14 +166,14 @@ const CardComponent = (props) => {
                 ...styles.glassBadge,
                 top: "12px",
                 right: "12px",
-                maxWidth: "150px", // Giới hạn chiều rộng địa chỉ
+                maxWidth: "150px",
                 whiteSpace: "nowrap",
                 overflow: "hidden",
                 textOverflow: "ellipsis",
               }}
             >
               <EnvironmentOutlined style={{ fontSize: "12px" }} />
-              {address}
+              {cityName}
             </div>
           )}
         </div>
@@ -186,11 +189,11 @@ const CardComponent = (props) => {
 
         <WrapperReportText style={styles.dateRow}>
           <CalendarOutlined style={styles.iconStyle} />
-          {new Date(eventDate).toLocaleDateString("vi-VN", {
+          {`${cityName}, ${new Date(eventDate).toLocaleDateString("en-GB", {
             day: "2-digit",
-            month: "2-digit",
+            month: "short",
             year: "numeric",
-          })}
+          })}`}
         </WrapperReportText>
       </div>
     </WrapperCardStyle>

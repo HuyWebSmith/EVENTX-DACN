@@ -5,11 +5,13 @@ import {
   UserOutlined,
   SettingOutlined,
   BuildOutlined,
+  PictureOutlined,
 } from "@ant-design/icons";
 import HeaderComponent from "../../components/HeaderComponent/HeaderComponent";
 import AdminUser from "../../components/AdminUser/AdminUser";
 import AdminEvent from "../../components/AdminEvent/AdminEvent";
 import AdminCategory from "../../components/AdminCategory/AdminCategory";
+import AdminSlider from "../../components/AdminSlider/AdminSlider";
 
 const items = [
   {
@@ -26,6 +28,11 @@ const items = [
     key: "category",
     icon: <BuildOutlined />,
     label: "Category",
+  },
+  {
+    key: "slider", // Thêm key mới
+    icon: <PictureOutlined />, // Icon hình ảnh
+    label: "Quản lý Slider",
   },
   {
     key: "3",
@@ -59,6 +66,8 @@ const AdminPage = () => {
         return <AdminEvent />;
       case "category":
         return <AdminCategory />;
+      case "slider":
+        return <AdminSlider />;
       default:
         return <></>;
     }

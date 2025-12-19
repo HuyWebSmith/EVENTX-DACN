@@ -37,6 +37,10 @@ const authMiddleWare = (req, res, next) => {
 
 // Middleware kiểm tra user (admin hoặc chính user)
 const authUserMiddleWare = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) {
+    return res.status(401).json({ message: "No token" });
+  }
   const token = getToken(req);
   if (!token)
     return res.status(401).json({ message: "Missing token", status: "ERROR" });
