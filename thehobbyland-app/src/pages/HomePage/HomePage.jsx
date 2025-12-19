@@ -11,8 +11,7 @@ import { Spin, Typography } from "antd";
 
 import BannerComponent from "../../components/BannerComponent/BannerComponent";
 import CityCard from "../../components/CityCard/CityCard";
-import Footer from "../../components/Footer/Footer";
-import { Center } from "@mantine/core";
+
 import axios from "axios";
 const HomePage = () => {
   const [categories, setCategories] = useState([]);
