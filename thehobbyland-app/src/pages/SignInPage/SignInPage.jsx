@@ -42,8 +42,6 @@ const SignInPage = () => {
   const dispatch = useDispatch();
   const handleGetDetailUser = async (id, token) => {
     try {
-      const storage = localStorage.getItem("refresh_token");
-      const refreshToken = JSON.parse(storage);
       const res = await UserService.getDetailUser(id, token);
       const userData = res.data?.data || res.data;
 
@@ -51,7 +49,6 @@ const SignInPage = () => {
         updateUser({
           ...userData,
           access_token: token,
-          refreshToken,
         })
       );
     } catch (error) {

@@ -153,3 +153,63 @@ video {
   border-radius: 50%;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
+/* Container chứa video */
+.video-box {
+  position: relative;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #000;
+  line-height: 0;
+}
+
+/* Lớp phủ làm tối xung quanh và đục lỗ ở giữa */
+.scan-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  /* Tạo lỗ hổng hình oval ở giữa bằng box-shadow khổng lồ hoặc mask */
+  pointer-events: none;
+  z-index: 2;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Vẽ khung oval tập trung */
+.scan-overlay::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 250px; /* Độ rộng vùng lấy mặt */
+  height: 320px; /* Độ cao vùng lấy mặt */
+  border-radius: 50%;
+  box-shadow: 0 0 0 1000px rgba(0, 0, 0, 0.6); /* Làm tối vùng ngoài */
+  border: 2px dashed #52c41a; /* Đường viền xanh để người dùng căn chỉnh */
+}
+
+/* Hiệu ứng quét chạy dọc trong khung oval */
+.scan-line {
+  position: absolute;
+  width: 250px;
+  height: 2px;
+  background: linear-gradient(to right, transparent, #52c41a, transparent);
+  box-shadow: 0 0 10px #52c41a;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
+  animation: scanLoop 2.5s ease-in-out infinite;
+}
+
+@keyframes scanLoop {
+  0% {
+    top: 25%;
+  }
+  50% {
+    top: 70%;
+  }
+  100% {
+    top: 25%;
+  }
+}

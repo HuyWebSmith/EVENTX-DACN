@@ -8,7 +8,7 @@ import InputFormComponent from "../../components/InputFormComponent/InputFormCom
 import ButtonComponent from "../../components/ButtonComponent/ButtonComponent";
 import LoadingComponent from "../../components/LoadingComponent/LoadingComponent";
 import imageLogo from "../../assets/images/logo_EventX.jpg";
-import { Image } from "antd";
+import { Image, Modal } from "antd";
 import {
   EyeInvisibleOutlined,
   EyeOutlined,
@@ -41,10 +41,20 @@ const SignUpPage = () => {
 
   useEffect(() => {
     if (mutation.isSuccess) {
-      success("Đăng ký thành công! Vui lòng kiểm tra email để xác thực.");
-      navigate("/sign-in");
+      const res = mutation.data;
+      if (res?.status === "OK") {
+        // Hiển thị Modal để bắt người dùng xác nhận đã đọc
+        Modal.success({
+          title: "Đăng ký thành công!",
+          content:
+            "Chúng tôi đã gửi một email xác thực đến địa chỉ của bạn. Vui lòng kiểm tra hộp thư (và cả hòm thư rác) để kích hoạt tài khoản.",
+          onOk: () => navigate("/sign-in"),
+        });
+      } else if (res?.status === "ERR") {
+        setErrorMessage(res.message);
+      }
     } else if (mutation.isError) {
-      error("Đăng ký thất bại!");
+      error("Đăng ký thất bại! Vui lòng kiểm tra lại kết nối.");
     }
   }, [mutation.isSuccess, mutation.isError]);
 
@@ -69,15 +79,7 @@ const SignUpPage = () => {
     mutation.mutate(
       { fullName, email, phone, passwordHash, confirmPassword },
       {
-        onSuccess: (res) => {
-          setIsLoading(false);
-          if (res.status === "OK") navigate("/sign-in");
-          else if (res.status === "ERR") setErrorMessage(res.message);
-        },
-        onError: () => {
-          setIsLoading(false);
-          setErrorMessage("Đăng ký thất bại, thử lại sau");
-        },
+        onSettled: () => setIsLoading(false),
       }
     );
   };

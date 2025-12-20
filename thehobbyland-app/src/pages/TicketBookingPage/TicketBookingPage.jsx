@@ -180,137 +180,161 @@ const TicketBookingPage = () => {
 
         <div style={styles.mainLayout}>
           <div style={styles.list}>
-            {tickets.map((ticket) => (
-              <div key={ticket._id} style={styles.card}>
-                {/* Cột 1: Thông tin định danh & Giá */}
-                <div style={styles.cardLeft}>
-                  <div style={extendedStyles.ticketTypeBadge}>
-                    {ticket.type}
-                  </div>
-                  <div style={styles.priceTag}>
-                    {formatCurrency(ticket.price)}
+            {tickets.map((ticket) => {
+              // --- CHỈ THÊM LOGIC KIỂM TRA Ở ĐÂY ---
+              const isLocked =
+                ticket.trangThai === "HetHan" || ticket.trangThai === "HetVe";
+
+              return (
+                <div
+                  key={ticket._id}
+                  style={{
+                    ...styles.card,
+                    // Nếu vé bị khóa thì làm mờ đi một chút và chặn click
+                    opacity: isLocked ? 0.7 : 1,
+                    pointerEvents: isLocked ? "none" : "auto",
+                  }}
+                >
+                  {/* Cột 1: Thông tin định danh & Giá */}
+                  <div style={styles.cardLeft}>
+                    <div style={extendedStyles.ticketTypeBadge}>
+                      {ticket.type}
+                    </div>
+                    <div style={styles.priceTag}>
+                      {formatCurrency(ticket.price)}
+                    </div>
+
+                    <div style={extendedStyles.dateInfo}>
+                      <Clock size={14} />
+                      <span>
+                        {ticket.startDate
+                          ? new Date(ticket.startDate).toLocaleString("vi-VN", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                              day: "2-digit",
+                              month: "2-digit",
+                              year: "numeric",
+                            })
+                          : "Sắp diễn ra"}
+                      </span>
+                    </div>
+
+                    {ticket.zoneName && (
+                      <div style={extendedStyles.zoneText}>
+                        <Zap
+                          size={14}
+                          fill={COLORS.accent}
+                          color={COLORS.accent}
+                        />
+                        {ticket.zoneName}
+                      </div>
+                    )}
+
+                    <div style={styles.ticketTotal}>
+                      {selectedQuantities[ticket._id] > 0
+                        ? `Tạm tính: ${formatCurrency(
+                            ticket.price * selectedQuantities[ticket._id]
+                          )}`
+                        : "Chưa chọn số lượng"}
+                    </div>
                   </div>
 
-                  <div style={extendedStyles.dateInfo}>
-                    <Clock size={14} />
-                    <span>
-                      {ticket.startDate
-                        ? new Date(ticket.startDate).toLocaleString("vi-VN", {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                            day: "2-digit",
-                            month: "2-digit",
-                            year: "numeric",
-                          })
-                        : "Sắp diễn ra"}
-                    </span>
-                  </div>
+                  {/* Cột 2: Nội dung mô tả (Đã xử lý HTML và cuộn) */}
+                  <div style={styles.cardCenter}>
+                    <div style={styles.infoTitle}>Chi tiết & Quy định:</div>
 
-                  {ticket.zoneName && (
-                    <div style={extendedStyles.zoneText}>
-                      <Zap
-                        size={14}
-                        fill={COLORS.accent}
-                        color={COLORS.accent}
+                    <div style={extendedStyles.scrollDescription}>
+                      {/* Render HTML từ database để nhận thẻ <p>, <br> */}
+                      <div
+                        style={extendedStyles.innerHtmlContent}
+                        dangerouslySetInnerHTML={{ __html: ticket.description }}
                       />
-                      {ticket.zoneName}
                     </div>
-                  )}
 
-                  <div style={styles.ticketTotal}>
-                    {selectedQuantities[ticket._id] > 0
-                      ? `Tạm tính: ${formatCurrency(
-                          ticket.price * selectedQuantities[ticket._id]
-                        )}`
-                      : "Chưa chọn số lượng"}
-                  </div>
-                </div>
-
-                {/* Cột 2: Nội dung mô tả (Đã xử lý HTML và cuộn) */}
-                <div style={styles.cardCenter}>
-                  <div style={styles.infoTitle}>Chi tiết & Quy định:</div>
-
-                  <div style={extendedStyles.scrollDescription}>
-                    {/* Render HTML từ database để nhận thẻ <p>, <br> */}
-                    <div
-                      style={extendedStyles.innerHtmlContent}
-                      dangerouslySetInnerHTML={{ __html: ticket.description }}
-                    />
-                  </div>
-
-                  <div style={extendedStyles.stockSummary}>
-                    <span>
-                      Tồn kho: <strong>{ticket.availability}</strong>
-                    </span>
-                    <span>
-                      Đã giữ:{" "}
-                      <strong style={{ color: COLORS.held }}>
-                        {ticket.heldCount || 0}
-                      </strong>
-                    </span>
-                  </div>
-                </div>
-
-                {/* Cột 3: Thao tác đặt vé */}
-                <div style={styles.cardRight}>
-                  <div style={styles.statusBox}>
-                    <div
-                      style={{
-                        ...styles.statusText,
-                        color:
-                          ticket.availability > 0
-                            ? COLORS.primary
-                            : COLORS.error,
-                      }}
-                    >
-                      {ticket.availability > 0 ? "ĐANG MỞ BÁN" : "HẾT VÉ"}
-                    </div>
-                    <div
-                      style={{
-                        ...styles.availabilityNum,
-                        color:
-                          ticket.availability > 0
-                            ? COLORS.primary
-                            : COLORS.error,
-                      }}
-                    >
-                      {ticket.availability}
+                    <div style={extendedStyles.stockSummary}>
+                      <span>
+                        Tồn kho: <strong>{ticket.availability}</strong>
+                      </span>
+                      <span>
+                        Đã giữ:{" "}
+                        <strong style={{ color: COLORS.held }}>
+                          {ticket.heldCount || 0}
+                        </strong>
+                      </span>
                     </div>
                   </div>
 
-                  <div style={styles.qtyPicker}>
-                    <button
-                      onClick={() =>
-                        updateQuantity(
-                          ticket._id,
-                          Math.max(0, (selectedQuantities[ticket._id] || 0) - 1)
-                        )
-                      }
-                      style={styles.qtyBtn}
-                    >
-                      <Minus size={16} />
-                    </button>
-                    <span style={styles.qtyText}>
-                      {selectedQuantities[ticket._id] || 0}
-                    </span>
-                    <button
-                      onClick={() =>
-                        updateQuantity(
-                          ticket._id,
-                          Math.min(
-                            ticket.availability,
-                            (selectedQuantities[ticket._id] || 0) + 1
+                  {/* Cột 3: Thao tác đặt vé */}
+                  <div style={styles.cardRight}>
+                    <div style={styles.statusBox}>
+                      <div
+                        style={{
+                          ...styles.statusText,
+                          color:
+                            ticket.availability > 0
+                              ? COLORS.primary
+                              : COLORS.error,
+                        }}
+                      >
+                        {/* Logic hiển thị text trạng thái */}
+                        {ticket.trangThai === "HetHan"
+                          ? "HẾT HẠN"
+                          : ticket.availability > 0
+                          ? "ĐANG MỞ BÁN"
+                          : "HẾT VÉ"}
+                      </div>
+                      <div
+                        style={{
+                          ...styles.availabilityNum,
+                          color:
+                            ticket.availability > 0
+                              ? COLORS.primary
+                              : COLORS.error,
+                        }}
+                      >
+                        {ticket.availability}
+                      </div>
+                    </div>
+
+                    <div style={styles.qtyPicker}>
+                      <button
+                        disabled={isLocked}
+                        onClick={() =>
+                          updateQuantity(
+                            ticket._id,
+                            Math.max(
+                              0,
+                              (selectedQuantities[ticket._id] || 0) - 1
+                            )
                           )
-                        )
-                      }
-                      style={styles.qtyBtn}
-                    >
-                      <Plus size={16} />
-                    </button>
+                        }
+                        style={styles.qtyBtn}
+                      >
+                        <Minus size={16} />
+                      </button>
+                      <span style={styles.qtyText}>
+                        {selectedQuantities[ticket._id] || 0}
+                      </span>
+                      <button
+                        disabled={isLocked}
+                        onClick={() =>
+                          updateQuantity(
+                            ticket._id,
+                            Math.min(
+                              ticket.availability,
+                              (selectedQuantities[ticket._id] || 0) + 1
+                            )
+                          )
+                        }
+                        style={styles.qtyBtn}
+                      >
+                        <Plus size={16} />
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           <div style={styles.sidebar}>

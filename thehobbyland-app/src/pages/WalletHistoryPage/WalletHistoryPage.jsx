@@ -4,32 +4,48 @@ import axios from "axios";
 import dayjs from "dayjs";
 import { axiosJWT } from "../../services/UserService";
 import { Navigate } from "react-router-dom";
+import { useSelector } from "react-redux";
 
 const { RangePicker } = DatePicker;
 
 const WalletHistoryPage = () => {
   const [data, setData] = useState([]);
+  const user = useSelector((state) => state.user);
+  const [isLoading, setIsLoading] = useState(true);
   const [typeFilter, setTypeFilter] = useState("");
   const [dateRange, setDateRange] = useState([]);
 
   const token = localStorage.getItem("access_token");
 
   const fetchData = async () => {
-    const res = await axiosJWT.get("http://localhost:3001/wallet/history", {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    setData(res.data.data);
+    if (user?.id) {
+      try {
+        const res = await axios.get(
+          `http://localhost:3001/wallet/history/${user.id}`
+        );
+        setData(res?.data?.data || []);
+      } catch (err) {
+        console.error("Lỗi lấy lịch sử ví:", err);
+      } finally {
+        setIsLoading(false); // Xong dữ liệu
+      }
+    } else {
+      // Nếu sau khi load mà vẫn ko có user id (ví dụ chưa đăng nhập thực sự)
+      // setIsLoading(false) sau 1 khoảng delay nhỏ để chắc chắn Redux đã thử load
+      setTimeout(() => setIsLoading(false), 500);
+    }
   };
 
   useEffect(() => {
-    const token = localStorage.getItem("access_token");
-    console.log("token", token);
     fetchData();
-  }, []);
-
+  }, [user?.id]);
+  if (isLoading && !user?.id) {
+    return (
+      <div style={{ padding: "50px", textAlign: "center" }}>
+        Đang xác thực tài khoản...
+      </div>
+    );
+  }
   const filteredData = data.filter((item) => {
     const matchType = typeFilter ? item.type === typeFilter : true;
     const matchDate =

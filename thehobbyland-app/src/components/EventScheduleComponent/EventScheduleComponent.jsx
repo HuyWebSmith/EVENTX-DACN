@@ -12,6 +12,7 @@ import {
 import dayjs from "dayjs";
 import isSameOrBefore from "dayjs/plugin/isSameOrBefore";
 import { useNavigate } from "react-router-dom";
+import { useSelector } from "react-redux";
 dayjs.extend(isSameOrBefore);
 
 const { Text } = Typography;
@@ -56,12 +57,17 @@ const scheduleItemStyle = (isHighlighted, isExpanded) => ({
 });
 
 // --- Component hiển thị chi tiết vé (Giữ nguyên) ---
-const TicketDetailList = ({ tickets, eventId }) => {
+const TicketDetailList = ({ tickets, eventId, currentUser }) => {
   const sortedTickets = tickets.sort((a, b) => a.price - b.price);
   const navigate = useNavigate();
 
   const handleSelectTicket = (ticket) => {
     if (ticket.trangThai === "ConVe" || ticket.trangThai === "SapBan") {
+      if (!currentUser) {
+        // Nếu chưa đăng nhập
+        navigate("/sign-in", { state: { from: `/event/${eventId}/book` } });
+        return;
+      }
       // Chỉ cho phép mua khi còn vé hoặc sắp hết
       navigate(`/event/${eventId}/book`, {
         state: { selectedTicketId: ticket._id },
@@ -616,7 +622,7 @@ const EventScheduleComponent = ({ tickets, eventId }) => {
       console.error("Thiếu eventId để điều hướng!");
     }
   };
-
+  const currentUser = useSelector((state) => state.user);
   const handleToggle = (id) => {
     setExpandedScheduleId((prevId) => (prevId === id ? null : id));
   };
@@ -678,6 +684,7 @@ const EventScheduleComponent = ({ tickets, eventId }) => {
                     <TicketDetailList
                       tickets={item.relatedTickets}
                       eventId={eventId}
+                      currentUser={currentUser}
                     />
                   )}
                 </React.Fragment>

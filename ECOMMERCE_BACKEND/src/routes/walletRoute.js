@@ -30,7 +30,12 @@ router.post("/deduct", authUserMiddleWare, async (req, res) => {
   try {
     const { amount, password } = req.body;
     const userId = req.user.id;
-
+    const wallet = await Wallet.findOne({ userId });
+    if (!["Verified", "Trusted"].includes(wallet.status)) {
+      return res.status(403).json({
+        message: "Chỉ ví đã xác minh (Verified) mới được rút tiền",
+      });
+    }
     const result = await walletService.deductBalance(userId, amount, password);
     if (!result.success) {
       return res.status(400).json({ message: result.message });
@@ -49,9 +54,9 @@ router.post("/deduct", authUserMiddleWare, async (req, res) => {
   }
 });
 
-router.get("/history", authUserMiddleWare, async (req, res) => {
+router.get("/history/:userId", async (req, res) => {
   try {
-    const userId = req.user.id;
+    const { userId } = req.params; // Lấy ID từ URL thay vì từ Token
 
     const history = await WalletTransaction.find({ userId }).sort({
       createdAt: -1,
@@ -59,8 +64,7 @@ router.get("/history", authUserMiddleWare, async (req, res) => {
 
     res.json({ success: true, data: history });
   } catch (err) {
-    console.error("WALLET HISTORY ERROR:", err);
-    res.status(500).json({ success: false, message: "Server lỗi" });
+    res.status(500).json({ success: false, message: "Lỗi tìm lịch sử" });
   }
 });
 

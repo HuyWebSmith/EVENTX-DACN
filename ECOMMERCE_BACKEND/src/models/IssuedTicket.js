@@ -1,7 +1,6 @@
 const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
 
-// Đây là schema cho vé đã được thanh toán và phát hành chính thức
 const issuedTicketSchema = new Schema({
   ticketCode: {
     type: String,

@@ -15,6 +15,7 @@ const initialState = {
   isAdmin: false,
   favorites: [],
   walletBalance: 0,
+  walletStatus: null,
 };
 
 export const userSlice = createSlice({
@@ -36,6 +37,7 @@ export const userSlice = createSlice({
         linkedInProfile,
         isAdmin,
         walletBalance,
+        walletStatus,
         refreshToken,
         favorites = [], // luôn có giá trị mặc định
       } = action.payload;
@@ -57,10 +59,13 @@ export const userSlice = createSlice({
       if (walletBalance !== undefined) {
         state.walletBalance = walletBalance;
       }
+      if (walletStatus !== undefined) {
+        state.walletStatus = walletStatus;
+      }
     },
 
     resetUser: (state) => {
-      Object.assign(state, initialState); // reset toàn bộ về initialState
+      Object.assign(state, initialState);
     },
 
     loginSuccess: (state, action) => {

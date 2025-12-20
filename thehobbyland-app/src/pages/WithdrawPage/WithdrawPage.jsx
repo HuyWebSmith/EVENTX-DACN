@@ -23,6 +23,8 @@ const WithdrawPage = () => {
   const [password, setPassword] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [api, contextHolder] = notification.useNotification();
+  const canWithdraw = ["Verified", "Trusted"].includes(user.walletStatus);
+  console.log("walletStatus:", user.walletStatus);
 
   const handleOpenModal = () => {
     if (!amount || amount <= 0) {
@@ -109,10 +111,21 @@ const WithdrawPage = () => {
           block
           size="large"
           onClick={handleOpenModal}
-          disabled={!amount || amount <= 0 || amount > user.walletBalance}
+          disabled={
+            !canWithdraw ||
+            !amount ||
+            amount <= 0 ||
+            amount > user.walletBalance
+          }
         >
           Yêu cầu rút tiền
         </Button>
+        {!canWithdraw && (
+          <Text type="danger" style={{ display: "block", marginTop: 10 }}>
+            <LockOutlined /> Ví chưa xác minh (KYC). Hoàn thành xác minh để được
+            rút tiền.
+          </Text>
+        )}
 
         <Text type="secondary" style={{ display: "block", marginTop: 10 }}>
           Tỷ giá ước tính: 1 USD ≈ 25.000 VND

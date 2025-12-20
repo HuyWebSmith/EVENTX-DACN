@@ -142,6 +142,5 @@ export const routes = [
     path: "/wallet/history",
     page: WalletHistoryPage,
     isShowHeader: true,
-    isPrivate: true,
   },
 ];

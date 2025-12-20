@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Menu, Table, Tag, message, Modal, Button } from "antd";
+import { Menu, Table, Tag, message, Modal, Button, Steps } from "antd";
 import {
   CalendarOutlined,
   AccountBookOutlined,
@@ -23,6 +23,7 @@ import { MenuFoldOutlined, MenuUnfoldOutlined } from "@ant-design/icons";
 import { Tabs } from "antd";
 import { Typography } from "antd";
 import { useLocation } from "react-router-dom";
+import { Html5QrcodeScanner } from "html5-qrcode";
 const { Text } = Typography;
 const menuItems = [
   { key: "event", icon: <CalendarOutlined />, label: "Sự kiện của tôi" },
@@ -50,6 +51,9 @@ const UserPage = () => {
   const [modal, contextHolder] = Modal.useModal();
   const [faceMessage, setFaceMessage] = useState(null);
   const [faceMessageType, setFaceMessageType] = useState("success");
+  const [currentStep, setCurrentStep] = useState(0);
+  const [scannedTicketCode, setScannedTicketCode] = useState("");
+  const [isVerifyingQR, setIsVerifyingQR] = useState(false);
   const location1 = useLocation();
   const queryParams = new URLSearchParams(location1.search);
   const tabFromQuery = queryParams.get("tab");
@@ -58,6 +62,50 @@ const UserPage = () => {
       setSelectedKey(tabFromQuery);
     }
   }, [tabFromQuery]);
+  const startQRScanner = () => {
+    const scanner = new Html5QrcodeScanner("qr-reader-register", {
+      fps: 10,
+      qrbox: { width: 200, height: 200 },
+    });
+
+    scanner.render(
+      async (decodedText) => {
+        setIsVerifyingQR(true);
+        // Kiểm tra mã vé xem có khớp với vé của user không (tùy chọn)
+        setScannedTicketCode(decodedText);
+        message.success("Đã nhận diện mã vé!");
+        scanner.clear(); // Dừng quét sau khi thành công
+        setIsVerifyingQR(false);
+      },
+      (err) => {
+        // Error callback
+      }
+    );
+  };
+
+  // Gọi startQRScanner khi currentStep === 0 và Modal mở
+  useEffect(() => {
+    let scanner;
+    if (faceModalVisible && currentStep === 0) {
+      setTimeout(() => {
+        scanner = new Html5QrcodeScanner("qr-reader-register", {
+          fps: 10,
+          qrbox: { width: 250, height: 250 },
+        });
+        scanner.render((decodedText) => {
+          setScannedTicketCode(decodedText);
+          message.success("Đã nhận diện vé!");
+          // Dừng scanner ngay khi quét được để nhường camera cho bước sau
+          scanner.clear();
+        });
+      }, 300);
+    }
+    return () => {
+      if (scanner) {
+        scanner.clear().catch(console.error);
+      }
+    };
+  }, [faceModalVisible, currentStep]);
   const openMapModal = (location) => {
     setMapLocation(location);
     setMapModalVisible(true);
@@ -78,6 +126,7 @@ const UserPage = () => {
       videoRef.current.srcObject.getTracks().forEach((t) => t.stop());
     }
     setFaceModalVisible(false);
+    setFaceMessage(null);
   };
   const handleRefundRequest = (ticket) => {
     modal.confirm({
@@ -136,81 +185,87 @@ const UserPage = () => {
 
   const handleFaceConfirm = async () => {
     const videoEl = videoRef.current;
-    if (!videoEl) {
-      setFaceMessage("Không tìm thấy thiết bị camera!");
-      setFaceMessageType("error");
-      return;
-    }
+    if (!videoEl) return;
 
-    // Bắt đầu quá trình
-    setFaceMessage("Đang quét khuôn mặt...");
+    // Tránh spam khi đang xử lý
+    if (faceMessage === "Đang gửi dữ liệu xác thực...") return;
+
+    setFaceMessage("🔍 Đang phân tích khuôn mặt...");
     setFaceMessageType("success");
 
     try {
-      // 1. Kiểm tra nhận diện gương mặt từ Stream Video
       const detections = await faceapi
         .detectSingleFace(videoEl, new faceapi.TinyFaceDetectorOptions())
-        .withFaceLandmarks(true)
+        .withFaceLandmarks(true) // QUAN TRỌNG: Thêm 'true' ở đây để dùng Tiny model bạn đã load
         .withFaceDescriptor();
 
-      // LỖI: Không tìm thấy khuôn mặt
       if (!detections) {
-        setFaceMessage(
-          "❌ Không tìm thấy khuôn mặt! Hãy nhìn thẳng và đủ sáng."
-        );
+        setFaceMessage("❌ Không tìm thấy khuôn mặt!");
+        return;
+      }
+
+      // Nếu bạn muốn dùng logic "Chỉ 1 người" với model Tiny sẵn có:
+      // Bạn phải dùng detectAllFaces nhưng cũng phải có tham số true
+      const allDetections = await faceapi
+        .detectAllFaces(videoEl, new faceapi.TinyFaceDetectorOptions())
+        .withFaceLandmarks(true) // Thêm true
+        .withFaceDescriptors();
+
+      if (allDetections.length > 1) {
+        setFaceMessage("❌ Phát hiện nhiều người!");
+        return;
+      }
+
+      // Lấy khuôn mặt duy nhất đó ra
+      const detection = allDetections[0];
+
+      // 3. Kiểm tra vị trí (Căn giữa khung hình)
+      const { x, width } = detection.detection.box;
+      const videoWidth = videoEl.videoWidth;
+      const faceCenterX = x + width / 2;
+
+      // Nếu mặt lệch quá 20% so với tâm video
+      if (Math.abs(faceCenterX - videoWidth / 2) > videoWidth * 0.2) {
+        setFaceMessage("❌ Hãy đưa khuôn mặt vào chính giữa khung hình.");
         setFaceMessageType("error");
         return;
       }
 
-      // 2. Nếu tìm thấy mặt, lấy descriptor
-      const faceDescriptor = Array.from(detections.descriptor);
+      // 4. Gửi dữ liệu lên Server
       setFaceMessage("Đang gửi dữ liệu xác thực...");
+      const faceDescriptor = Array.from(detection.descriptor);
 
-      // 3. Gọi API
-      let res;
-      if (faceAction === "register") {
-        res = await axiosJWT.post(
-          "http://localhost:3000/api/checkin-order/register-face",
-          {
-            ticketCode: currentTicket.ticketCode,
-            faceDescriptor,
-          }
-        );
-      } else {
-        res = await axiosJWT.post(
-          "http://localhost:3000/api/checkin-order/checkin-face",
-          {
-            ticketCode: currentTicket.ticketCode,
-            faceDescriptor,
-          }
-        );
+      if (!scannedTicketCode) {
+        setFaceMessage("❌ Thiếu mã vé! Vui lòng quay lại bước 1.");
+        setFaceMessageType("error");
+        return;
       }
 
-      // 4. Xử lý kết quả từ Server
-      if (res.data && (res.data.success || res.status === 200)) {
-        setFaceMessage(
-          faceAction === "register"
-            ? "✅ Thiết lập Face ID hoàn tất!"
-            : "✅ Xác thực thành công!"
-        );
+      const res = await axiosJWT.post(
+        "http://localhost:3000/api/checkin-order/register-face",
+        {
+          ticketCode: scannedTicketCode,
+          faceDescriptor,
+        }
+      );
+
+      if (res.data?.success) {
+        setFaceMessage("✅ Thiết lập FaceID thành công!");
         setFaceMessageType("success");
-
-        // Load lại danh sách vé để cập nhật trạng thái (ví dụ nút Thiết lập biến mất)
-        fetchUserTickets();
-
-        // Đợi 2 giây để user thấy thông báo thành công rồi mới đóng
         setTimeout(() => {
           closeFaceModal();
+          setCurrentStep(0);
+          setScannedTicketCode("");
+          fetchUserTickets();
         }, 2000);
       } else {
-        // LỖI: Server trả về thất bại (Ví dụ: Vé đã dùng, hoặc Face ID không khớp)
         setFaceMessage(`❌ ${res.data.message || "Thao tác thất bại"}`);
         setFaceMessageType("error");
       }
     } catch (err) {
-      // LỖI: Kết nối server hoặc lỗi crash code
-      console.error("Face ID Error:", err);
-      setFaceMessage("❌ Lỗi hệ thống! Vui lòng thử lại sau.");
+      console.error("Chi tiết lỗi hệ thống:", err);
+      // Thông báo lỗi cụ thể để debug
+      setFaceMessage(`❌ Lỗi: ${err.message || "Kết nối hệ thống thất bại"}`);
       setFaceMessageType("error");
     }
   };
@@ -325,30 +380,34 @@ const UserPage = () => {
   // Bên trong UserPage component
   useEffect(() => {
     const startVideo = async () => {
-      if (faceModalVisible) {
+      // CHỈ chạy camera FaceID khi ở Bước 1
+      if (faceModalVisible && currentStep === 1) {
         try {
           const stream = await navigator.mediaDevices.getUserMedia({
-            video: true,
+            video: { facingMode: "user" }, // Ưu tiên camera trước để quét mặt
           });
           if (videoRef.current) {
             videoRef.current.srcObject = stream;
-            await videoRef.current.play();
+            // Quan trọng: Đợi camera load xong mới play
+            videoRef.current.onloadedmetadata = () => {
+              videoRef.current.play();
+            };
           }
         } catch (err) {
-          console.error("Không thể mở camera:", err);
-          message.error("Không thể truy cập camera!");
-          setFaceModalVisible(false);
+          console.error("Lỗi camera FaceID:", err);
+          message.error("Không thể truy cập camera cho FaceID!");
         }
       } else {
-        // stop video khi đóng modal
+        // Tắt stream khi không ở Bước 1 hoặc đóng Modal
         if (videoRef.current?.srcObject) {
           videoRef.current.srcObject.getTracks().forEach((t) => t.stop());
+          videoRef.current.srcObject = null;
         }
       }
     };
 
     startVideo();
-  }, [faceModalVisible]);
+  }, [faceModalVisible, currentStep]); // Lắng nghe cả bước hiện tại
   const favoriteColumns = [
     {
       title: (
@@ -439,20 +498,7 @@ const UserPage = () => {
         return <Tag color="processing">Sẵn sàng</Tag>;
       },
     },
-    {
-      title: "Face ID",
-      render: (_, record) =>
-        !record.isCheckedIn && (
-          <Button
-            type="primary"
-            ghost
-            size="small"
-            onClick={() => openFaceModal(record, "register")}
-          >
-            {record.faceRegistered ? "Cập nhật FaceID" : "Thiết lập FaceID"}
-          </Button>
-        ),
-    },
+
     {
       title: "Thao tác",
       render: (_, record) => {
@@ -485,6 +531,21 @@ const UserPage = () => {
         return (
           <>
             <h2 className="content-title">Vé đã mua</h2>
+            <Button
+              type="primary"
+              icon={<SettingOutlined />}
+              size="large"
+              onClick={() => {
+                setCurrentStep(0);
+                setScannedTicketCode("");
+                setFaceMessage(null);
+                setFaceModalVisible(true);
+                setFaceAction("register");
+              }}
+              style={{ borderRadius: "8px", fontWeight: 600 }}
+            >
+              Thiết lập FaceID bằng QR
+            </Button>
             <Tabs defaultActiveKey="active">
               <Tabs.TabPane tab="Còn hiệu lực" key="active">
                 <Table
@@ -573,68 +634,76 @@ const UserPage = () => {
       {/* Modal Face ID - Nâng cấp giao diện Modal */}
       <Modal
         open={faceModalVisible}
-        title={
-          faceAction === "register"
-            ? "📸 Thiết lập Face ID"
-            : "🔍 Xác thực khuôn mặt"
-        }
-        onCancel={closeFaceModal}
-        onOk={handleFaceConfirm}
-        okText="Xác nhận"
-        cancelText="Hủy"
-        centered
-        destroyOnClose
-        width={450}
-      >
-        <style>{`
-    .video-box { 
-      border-radius: 12px; 
-      overflow: hidden; 
-      background: #000; 
-      position: relative; 
-      border: 4px solid #fff;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-    }
-    .scan-overlay { 
-      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
-      width: 200px; height: 200px; border: 2px solid #1890ff; border-radius: 50%; 
-      box-shadow: 0 0 0 1000px rgba(0,0,0,0.6); 
-    }
-    .scan-line {
-      position: absolute; top: 0; left: 0; width: 100%; height: 2px;
-      background: #1890ff; box-shadow: 0 0 15px #1890ff;
-      animation: scan 2s linear infinite;
-    }
-    @keyframes scan { 0% { top: 0; } 100% { top: 100%; } }
-  `}</style>
-
-        <div className="video-box">
-          <video
-            ref={videoRef}
-            width="100%"
-            autoPlay
-            muted
-            playsInline
-            style={{ transform: "scaleX(-1)" }} // Lật gương cho khách dễ căn chỉnh
-          />
-          <div className="scan-overlay">
-            <div className="scan-line"></div>
-          </div>
-        </div>
-
-        {faceMessage && (
-          <div style={{ marginTop: 20, textAlign: "center" }}>
-            <Text
-              strong
-              type={faceMessageType === "success" ? "success" : "danger"}
+        title="Thiết lập FaceID cho vé"
+        onCancel={() => {
+          closeFaceModal();
+          setCurrentStep(0);
+          setScannedTicketCode("");
+        }}
+        footer={[
+          currentStep === 0 && (
+            <Button
+              key="next"
+              type="primary"
+              disabled={!scannedTicketCode}
+              onClick={() => setCurrentStep(1)}
             >
-              {faceMessageType === "success" ? (
-                <CheckCircleOutlined />
-              ) : (
-                <CloseCircleOutlined />
-              )}{" "}
-              {faceMessage}
-            </Text>
+              Tiếp theo: Quét mặt
+            </Button>
+          ),
+          currentStep === 1 && (
+            <Button key="back" onClick={() => setCurrentStep(0)}>
+              Quay lại
+            </Button>
+          ),
+          currentStep === 1 && (
+            <Button key="submit" type="primary" onClick={handleFaceConfirm}>
+              Xác nhận thiết lập
+            </Button>
+          ),
+        ]}
+        width={500}
+      >
+        <Steps
+          current={currentStep}
+          items={[{ title: "Quét QR" }, { title: "Quét FaceID" }]}
+          style={{ marginBottom: 20 }}
+        />
+
+        {/* Bước 1: Quét QR */}
+        {currentStep === 0 && (
+          <div style={{ textAlign: "center" }}>
+            <p>Vui lòng quét mã QR trên vé để xác định vé cần thiết lập.</p>
+            <div id="qr-reader-register" style={{ width: "100%" }}></div>
+            {scannedTicketCode && (
+              <div style={{ marginTop: 10 }}>
+                <Tag color="blue">Mã vé đã chọn: {scannedTicketCode}</Tag>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Bước 2: Quét FaceID (Giữ nguyên logic video cũ của bạn) */}
+        {currentStep === 1 && (
+          <div className="face-scan-container">
+            <div className="video-box">
+              <video
+                ref={videoRef}
+                width="100%"
+                autoPlay
+                muted
+                playsInline
+                style={{
+                  transform: "scaleX(-1)",
+                  display: currentStep === 1 ? "block" : "none", // Chỉ hiện khi tới bước
+                  background: "#000",
+                }}
+              />
+              <div className="scan-overlay">
+                <div className="scan-line"></div>
+              </div>
+            </div>
+            {faceMessage && <div style={{ marginTop: 10 }}>{faceMessage}</div>}
           </div>
         )}
       </Modal>

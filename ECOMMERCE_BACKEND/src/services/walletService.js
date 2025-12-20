@@ -108,14 +108,25 @@ async function updateWalletStatus(userId) {
         missionCode: "GOOD_HISTORY",
         name: "Lịch sử tốt",
         description: "Không vi phạm trong 6 tháng",
-        isCompleted: !transactions.some(
-          (t) =>
-            t.isFlagged ||
-            t.createdAt < new Date(Date.now() - 180 * 24 * 60 * 60 * 1000)
-        ),
+        isCompleted: false,
       },
     ];
+    for (const m of missions) {
+      if (!m.isCompleted) continue;
 
+      await WalletMission.findOneAndUpdate(
+        { walletId: wallet._id, missionCode: m.missionCode },
+        {
+          walletId: wallet._id,
+          missionCode: m.missionCode,
+          name: m.name,
+          description: m.description,
+          isCompleted: true,
+          completedAt: new Date(),
+        },
+        { upsert: true, new: true }
+      );
+    }
     // Cập nhật status wallet theo missions
     let newStatus = "Locked";
     if (missions[0].isCompleted && missions[1].isCompleted) newStatus = "Basic";
@@ -129,8 +140,8 @@ async function updateWalletStatus(userId) {
       wallet.status = newStatus;
       await wallet.save();
     }
-
-    return { wallet, missions };
+    const savedMissions = await WalletMission.find({ walletId: wallet._id });
+    return { wallet, missions: savedMissions };
   } catch (err) {
     console.error("Failed to update wallet status:", err);
     return { wallet: null, missions: [] };

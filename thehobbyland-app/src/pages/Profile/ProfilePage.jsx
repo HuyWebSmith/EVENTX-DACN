@@ -143,9 +143,17 @@ const ProfilePage = () => {
 
     // Load wallet
     UserService.axiosJWT
-      .get(`http://localhost:3001/wallet/${userId}`)
+      .get(`http://localhost:3001/wallet/${user.id}`)
       .then((res) => {
-        if (res.data?.wallet) setWallet(res.data.wallet);
+        if (res.data?.wallet) {
+          setWallet(res.data.wallet);
+
+          dispatch(
+            updateUser({
+              walletStatus: res.data.wallet.status,
+            })
+          );
+        }
       });
   }, [dispatch]);
 

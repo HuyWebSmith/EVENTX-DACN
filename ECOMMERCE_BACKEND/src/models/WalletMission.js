@@ -6,13 +6,13 @@ const walletMissionSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Wallet",
       required: true,
-      index: true, // tạo index để query nhanh theo wallet
+      index: true,
     },
     missionCode: {
       type: String,
       required: true,
       enum: ["EMAIL_VERIFY", "PROFILE_COMPLETE", "KYC", "LINK_PAYPAL"],
-      index: true, // index để query theo missionCode nếu cần
+      index: true,
     },
     name: {
       type: String,

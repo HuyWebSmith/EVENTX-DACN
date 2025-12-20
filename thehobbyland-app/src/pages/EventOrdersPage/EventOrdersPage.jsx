@@ -150,30 +150,31 @@ const EventOrdersPage = () => {
     };
     loadModels();
   }, []);
+  // 1. useEffect chỉ để quản lý Camera (mở/tắt)
   useEffect(() => {
     if (faceModalVisible) {
-      // 1. Mở camera
       navigator.mediaDevices
         .getUserMedia({ video: true })
         .then((stream) => {
           if (videoRef.current) videoRef.current.srcObject = stream;
         })
         .catch(() => message.error("Không thể mở camera!"));
-
-      // 2. Thiết lập vòng lặp quét tự động
-      scanningInterval.current = setInterval(() => {
-        handleGlobalFaceCheckin();
-      }, 1500);
     } else {
-      // Dọn dẹp khi đóng modal
       if (videoRef.current?.srcObject) {
         videoRef.current.srcObject.getTracks().forEach((t) => t.stop());
       }
-      if (scanningInterval.current) clearInterval(scanningInterval.current);
     }
-    return () => {
-      if (scanningInterval.current) clearInterval(scanningInterval.current);
-    };
+  }, [faceModalVisible]);
+
+  // 2. useEffect riêng để quét tự động khi camera đã sẵn sàng
+  useEffect(() => {
+    let interval;
+    if (faceModalVisible && !isScanning) {
+      interval = setInterval(() => {
+        handleGlobalFaceCheckin();
+      }, 1000); // Quét mỗi giây
+    }
+    return () => clearInterval(interval);
   }, [faceModalVisible, isScanning]);
   useEffect(() => {
     fetchEventOrders(eventId);

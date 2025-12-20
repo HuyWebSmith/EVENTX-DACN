@@ -22,15 +22,15 @@ export function App() {
   // decode token
   const handleDecode = () => {
     const storageData = localStorage.getItem("access_token");
-    const storageRefreshToken = localStorage.getItem("refresh_token");
-    const refresh_token = JSON.parse(storageRefreshToken);
+
     if (!storageData) {
       console.warn("Không có access_token trong localStorage");
       return { decoded: null, storageData: null, refresh_token: null };
     }
+
     try {
       const decoded = jwtDecode(storageData);
-      return { decoded, storageData, refresh_token };
+      return { decoded, storageData };
     } catch (err) {
       console.error("JWT decode lỗi:", err);
       return { decoded: null, storageData: null, refresh_token: null };
